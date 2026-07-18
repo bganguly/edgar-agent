@@ -1,0 +1,17 @@
+server {
+    listen $PORT;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    location ~ ^/(chat|sessions) {
+        proxy_pass $BACKEND_URL;
+        proxy_read_timeout 300s;
+        proxy_buffering off;
+        proxy_set_header Connection '';
+        chunked_transfer_encoding on;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
