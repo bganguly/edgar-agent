@@ -22,11 +22,11 @@ printf '\n'
 printf '  [2] Cloud  — GCP Cloud Run  (~$0/mo scales-to-zero)'
 (( _gcp_deployed )) && printf ' [deployed]' || printf ' [not deployed]'
 printf '\n'
-printf '\nChoice [1/2]: '
+printf '\nChoice [1/2, default 2]: '
 read -r _MODE
 case "$_MODE" in
-  2) TARGET="cloud" ;;
-  *) TARGET="local" ;;
+  1) TARGET="local" ;;
+  *) TARGET="cloud" ;;
 esac
 
 # ── local mode ────────────────────────────────────────────────────────────────
