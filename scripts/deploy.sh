@@ -146,6 +146,15 @@ gcloud projects add-iam-policy-binding "$GCP_PROJECT" \
   --role="roles/secretmanager.secretAccessor" --quiet 2>/dev/null || true
 
 [[ -f "$ROOT/.env" ]] && source "$ROOT/.env"
+for _sib in "$ROOT"/../*/.env; do
+  [[ -f "$_sib" ]] || continue
+  [[ -z "${ANTHROPIC_API_KEY:-}" ]] && \
+    ANTHROPIC_API_KEY=$(grep "^ANTHROPIC_API_KEY=" "$_sib" 2>/dev/null | cut -d= -f2- | head -1 || true)
+  [[ -z "${OPENAI_API_KEY:-}" ]] && \
+    OPENAI_API_KEY=$(grep "^OPENAI_API_KEY=" "$_sib" 2>/dev/null | cut -d= -f2- | head -1 || true)
+done
+export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}"
+export OPENAI_API_KEY="${OPENAI_API_KEY:-}"
 ANTHROPIC_API_KEY=$(_prompt_key "ANTHROPIC_API_KEY" "edgar-anthropic-key" required)
 OPENAI_API_KEY=$(_prompt_key    "OPENAI_API_KEY"    "edgar-openai-key"    optional)
 
