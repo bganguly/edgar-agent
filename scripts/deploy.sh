@@ -258,3 +258,8 @@ printf '  App:       %s\n' "$FRONTEND_URL"
 printf '  API:       %s/docs\n' "$BACKEND_URL"
 printf '  Cost:      ~$0/mo  (Cloud Run free tier)\n'
 printf '  Tear down: ./scripts/infra-down.sh\n'
+
+PORTFOLIO_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/portfolio/scripts/set-live-url.sh"
+if [[ -x "$PORTFOLIO_SCRIPT" ]]; then
+  bash "$PORTFOLIO_SCRIPT" edgarAgent "$FRONTEND_URL" "$BACKEND_URL"
+fi
