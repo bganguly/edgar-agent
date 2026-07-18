@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Explorer — EDGAR 10-K Agent</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%236366f1'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-family='Inter,system-ui,sans-serif' font-size='9' font-weight='700'>10-K</text></svg>" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['Inter','system-ui','sans-serif'], mono: ['JetBrains Mono','monospace'] } } }
+    };
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+    body { background: #0f0f13; }
+    .glass { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); }
+    .chip { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-size: 0.7rem; font-weight: 500; }
+    .method-get  { background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3); color: #34d399; }
+    .method-post { background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.3); color: #a5b4fc; }
+    input[type="text"], textarea {
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+      color: #e4e4e7; border-radius: 8px; padding: 6px 12px; font-size: 0.8rem;
+      font-family: 'JetBrains Mono', monospace; outline: none; transition: border-color 0.15s;
+      width: 100%;
+    }
+    textarea { resize: vertical; min-height: 72px; }
+    input[type="text"]:focus, textarea:focus { border-color: rgba(99,102,241,0.5); }
+    .run-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 16px; border-radius: 8px; font-size: 0.75rem; font-weight: 600;
+      background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.4);
+      color: #a5b4fc; cursor: pointer; transition: all 0.15s; white-space: nowrap;
+    }
+    .run-btn:hover { background: rgba(99,102,241,0.25); }
+    .run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .endpoint-path { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #a1a1aa; }
+    .timing-fast { background: rgba(16,185,129,0.12); color: #34d399; border: 1px solid rgba(16,185,129,0.25); }
+    .timing-mid  { background: rgba(245,158,11,0.12); color: #fbbf24; border: 1px solid rgba(245,158,11,0.25); }
+    .timing-slow { background: rgba(239,68,68,0.12);  color: #f87171; border: 1px solid rgba(239,68,68,0.25); }
+    .raw-json { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 12px; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: #71717a; max-height: 260px; overflow-y: auto; white-space: pre; }
+    .schema-block { background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 10px 14px; font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; color: #52525b; line-height: 1.8; }
+    .schema-block .k { color: #818cf8; }
+    .schema-block .v { color: #71717a; }
+    .schema-block .opt { color: #3f3f46; }
+    details summary { cursor: pointer; font-size: 0.7rem; color: #52525b; margin-top: 10px; user-select: none; list-style: none; display: flex; align-items: center; gap: 5px; }
+    details summary:hover { color: #a1a1aa; }
+    details summary::before { content: '▶'; font-size: 0.55rem; transition: transform 0.15s; }
+    details[open] summary::before { transform: rotate(90deg); }
+    details[open] summary { color: #a1a1aa; }
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(99,102,241,0.3); border-top-color: #818cf8; border-radius: 50%; animation: spin 0.6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-msg { color: #f87171; font-size: 0.75rem; background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; padding: 10px 14px; }
+    .success-msg { color: #34d399; font-size: 0.75rem; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); border-radius: 8px; padding: 10px 14px; }
+    .http-code-2 { color: #34d399; }
+    .http-code-4 { color: #f87171; }
+    .flow-arrow { color: #3f3f46; margin: 0 6px; }
+    .flow-node { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px; font-size: 0.65rem; font-family: 'JetBrains Mono', monospace; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+    /* SSE event stream */
+    .sse-stream { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 14px; font-size: 0.76rem; min-height: 80px; max-height: 420px; overflow-y: auto; }
+    .sse-tool { display: flex; align-items: flex-start; gap: 8px; padding: 6px 10px; border-radius: 6px; margin-bottom: 6px; background: rgba(245,158,11,0.06); border: 1px solid rgba(245,158,11,0.2); }
+    .sse-tool-icon { color: #fbbf24; font-size: 0.7rem; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+    .sse-tool-name { color: #fbbf24; font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 0.7rem; }
+    .sse-tool-input { color: #78716c; font-family: 'JetBrains Mono', monospace; font-size: 0.67rem; line-height: 1.5; white-space: pre-wrap; }
+    .sse-answer { color: #d4d4d8; line-height: 1.65; font-family: 'Inter', sans-serif; white-space: pre-wrap; }
+    .sse-cursor { display: inline-block; width: 2px; height: 13px; background: #6366f1; margin-left: 1px; animation: blink 0.9s step-end infinite; vertical-align: text-bottom; }
+    @keyframes blink { 50% { opacity: 0; } }
+    .sse-session { font-family: 'JetBrains Mono', monospace; font-size: 0.67rem; color: #52525b; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.05); }
+    .sample-q { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 6px; font-size: 0.68rem; color: #6366f1; background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2); cursor: pointer; transition: all 0.12s; white-space: nowrap; }
+    .sample-q:hover { background: rgba(99,102,241,0.15); color: #a5b4fc; }
+  </style>
+</head>
+<body class="text-zinc-100 font-sans antialiased min-h-screen">
+
+  <!-- Nav -->
+  <nav class="fixed top-0 inset-x-0 z-40 border-b" style="border-color:rgba(255,255,255,0.06);background:rgba(15,15,19,0.9);backdrop-filter:blur(16px)">
+    <div class="max-w-4xl mx-auto px-6 h-14 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-100 transition-colors">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M5 12l7-7M5 12l7 7"/></svg>
+        App
+      </a>
+      <div class="flex items-center gap-3">
+        <span class="text-xs text-zinc-600">EDGAR 10-K Agent</span>
+        <span class="chip" style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);color:#a5b4fc">FastAPI · Agent Loop · SSE</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="pt-28 pb-10 px-6 max-w-4xl mx-auto">
+    <p class="text-xs font-medium text-indigo-400 tracking-widest uppercase mb-3">API Explorer</p>
+    <h1 class="text-2xl font-bold text-zinc-100 mb-2">Live API — EDGAR 10-K Agent</h1>
+    <p class="text-sm text-zinc-500 max-w-2xl mb-6">
+      Send questions about public companies and watch the agent loop unfold in real time —
+      tool calls, EDGAR fetches, and the final streamed answer.
+    </p>
+
+    <!-- Architecture flow -->
+    <div class="flex flex-wrap items-center gap-1 mb-6 text-[11px]">
+      <span class="flow-node" style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);color:#a5b4fc">POST /chat</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-node" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);color:#fbbf24">tool_call: search_edgar</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-node" style="background:rgba(100,116,139,0.1);border:1px solid rgba(100,116,139,0.2);color:#94a3b8">EDGAR API</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-node" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);color:#fbbf24">tool_call: fetch_filing</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-node" style="background:rgba(100,116,139,0.1);border:1px solid rgba(100,116,139,0.2);color:#94a3b8">SEC.gov</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-node" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);color:#34d399">token stream</span>
+    </div>
+
+    <!-- Base URL -->
+    <div class="glass rounded-xl px-4 py-3 flex flex-wrap items-center gap-3">
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <span id="url-dot" class="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block"></span>
+        <span class="text-xs text-zinc-600">Backend base URL</span>
+      </div>
+      <input type="text" id="base-url-input"
+        placeholder="http://localhost:8000  or  https://edgar-backend-…run.app"
+        style="flex:1;min-width:260px;width:auto"
+        oninput="onBaseUrlChange()" />
+      <span class="text-xs text-zinc-600" id="url-hint">leave blank to use the Vite proxy (local dev)</span>
+    </div>
+  </section>
+
+  <!-- Endpoint cards -->
+  <section class="px-6 pb-24 max-w-4xl mx-auto space-y-5">
+
+    <!-- GET /health -->
+    <div class="glass rounded-2xl overflow-hidden">
+      <button class="w-full flex items-center justify-between gap-4 px-6 py-4 text-left" onclick="toggleCard('health')">
+        <div class="flex items-center gap-3">
+          <span class="chip method-get text-[11px] px-2 py-0.5">GET</span>
+          <span class="endpoint-path">/health</span>
+          <span class="text-xs text-zinc-600 hidden sm:inline">Liveness probe — confirms the FastAPI container is up</span>
+        </div>
+        <svg id="chevron-health" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-zinc-600 flex-shrink-0 transition-transform duration-200"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div id="body-health" class="hidden px-6 pb-6 border-t" style="border-color:rgba(255,255,255,0.06)">
+        <div class="pt-4 mb-4">
+          <div class="schema-block">
+            <span class="http-code-2">200</span> { <span class="k">"status"</span>: <span class="v">"ok"</span> }
+          </div>
+        </div>
+        <button class="run-btn" onclick="runHealth()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l14 9-14 9V3z"/></svg>
+          Ping
+        </button>
+        <div id="result-health" class="mt-4"></div>
+      </div>
+    </div>
+
+    <!-- POST /chat -->
+    <div class="glass rounded-2xl overflow-hidden">
+      <button class="w-full flex items-center justify-between gap-4 px-6 py-4 text-left" onclick="toggleCard('chat')">
+        <div class="flex items-center gap-3">
+          <span class="chip method-post text-[11px] px-2 py-0.5">POST</span>
+          <span class="endpoint-path">/chat</span>
+          <span class="text-xs text-zinc-600 hidden sm:inline">Run the agent loop — streams tool calls and answer tokens via SSE</span>
+        </div>
+        <svg id="chevron-chat" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-zinc-600 flex-shrink-0 transition-transform duration-200"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div id="body-chat" class="hidden px-6 pb-6 border-t" style="border-color:rgba(255,255,255,0.06)">
+        <div class="pt-4 mb-5 grid sm:grid-cols-2 gap-4">
+          <div>
+            <p class="text-[10px] text-zinc-600 uppercase tracking-wider mb-2">Request — application/json</p>
+            <div class="schema-block">
+              {<br>
+              &nbsp;&nbsp;<span class="k">"message"</span>: <span class="v">&lt;string&gt;</span>,<br>
+              &nbsp;&nbsp;<span class="opt k">"session_id"</span><span class="opt">?: &lt;uuid&gt;</span><br>
+              }
+            </div>
+          </div>
+          <div>
+            <p class="text-[10px] text-zinc-600 uppercase tracking-wider mb-2">SSE event stream</p>
+            <div class="schema-block">
+              <span class="k">tool_call</span> { tool, input }<br>
+              <span class="k">token</span>&nbsp;&nbsp;&nbsp;&nbsp; { text }<br>
+              <span class="k">session_id</span> { session_id }<br>
+              <span class="k">done</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; { messages[] }
+            </div>
+          </div>
+        </div>
+
+        <!-- Sample questions -->
+        <p class="text-[10px] text-zinc-600 uppercase tracking-wider mb-2">Sample questions</p>
+        <div class="flex flex-wrap gap-2 mb-4">
+          <span class="sample-q" onclick="setSample(this)">What were Apple's main risk factors in their most recent 10-K?</span>
+          <span class="sample-q" onclick="setSample(this)">How did Tesla describe its revenue growth in 2023?</span>
+          <span class="sample-q" onclick="setSample(this)">What is Amazon's total long-term debt?</span>
+          <span class="sample-q" onclick="setSample(this)">Summarize Microsoft's cloud segment revenue trend.</span>
+        </div>
+
+        <div class="space-y-3 mb-4">
+          <div>
+            <label class="text-[10px] text-zinc-600 uppercase tracking-wider block mb-1.5">message</label>
+            <textarea id="chat-message" placeholder="Ask a question about any public company's 10-K filing…" style="min-height:60px"></textarea>
+          </div>
+          <div>
+            <label class="text-[10px] text-zinc-600 uppercase tracking-wider block mb-1.5">session_id <span class="text-zinc-700 normal-case">(optional — auto-filled after first response)</span></label>
+            <input type="text" id="chat-session" placeholder="leave blank to start a new session" />
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3 mb-4">
+          <button class="run-btn" id="chat-btn" onclick="runChat()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l14 9-14 9V3z"/></svg>
+            Send
+          </button>
+          <button class="run-btn" id="chat-stop" onclick="stopChat()" style="display:none;background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.3);color:#f87171">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+            Stop
+          </button>
+        </div>
+
+        <div id="result-chat"></div>
+      </div>
+    </div>
+
+    <!-- GET /sessions/{id}/history -->
+    <div class="glass rounded-2xl overflow-hidden">
+      <button class="w-full flex items-center justify-between gap-4 px-6 py-4 text-left" onclick="toggleCard('history')">
+        <div class="flex items-center gap-3">
+          <span class="chip method-get text-[11px] px-2 py-0.5">GET</span>
+          <span class="endpoint-path">/sessions/{session_id}/history</span>
+          <span class="text-xs text-zinc-600 hidden sm:inline">Fetch full conversation history for a session</span>
+        </div>
+        <svg id="chevron-history" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-zinc-600 flex-shrink-0 transition-transform duration-200"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div id="body-history" class="hidden px-6 pb-6 border-t" style="border-color:rgba(255,255,255,0.06)">
+        <div class="pt-4 mb-5 grid sm:grid-cols-2 gap-4">
+          <div>
+            <p class="text-[10px] text-zinc-600 uppercase tracking-wider mb-2">Path param</p>
+            <div class="schema-block">
+              <span class="k">session_id</span>: <span class="v">&lt;uuid&gt;</span>
+            </div>
+          </div>
+          <div>
+            <p class="text-[10px] text-zinc-600 uppercase tracking-wider mb-2">Response</p>
+            <div class="schema-block">
+              <span class="http-code-2">200</span> {<br>
+              &nbsp;&nbsp;<span class="k">"session_id"</span>: <span class="v">&lt;uuid&gt;</span>,<br>
+              &nbsp;&nbsp;<span class="k">"messages"</span>: [{ role, content }]<br>
+              }<br>
+              <span class="http-code-4">404</span> { <span class="k">"detail"</span>: <span class="v">"Session not found"</span> }
+            </div>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-end gap-3 mb-4">
+          <div class="flex-1 min-w-[260px]">
+            <label class="text-[10px] text-zinc-600 uppercase tracking-wider block mb-1.5">session_id</label>
+            <input type="text" id="history-session" placeholder="uuid — auto-filled from /chat response" />
+          </div>
+          <button class="run-btn" onclick="runHistory()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l14 9-14 9V3z"/></svg>
+            Fetch
+          </button>
+        </div>
+        <div id="result-history"></div>
+      </div>
+    </div>
+
+  </section>
+
+  <script>
+    let _abortCtrl = null;
+
+    function getBase() {
+      return document.getElementById('base-url-input').value.trim().replace(/\/$/, '');
+    }
+
+    function resolveUrl(path) {
+      const base = getBase();
+      return base ? base + path : path;
+    }
+
+    function onBaseUrlChange() {
+      const v = getBase();
+      document.getElementById('url-dot').className =
+        'w-1.5 h-1.5 rounded-full inline-block ' + (v ? 'bg-emerald-400' : 'bg-indigo-400');
+      document.getElementById('url-hint').textContent = v ? '' : 'leave blank to use the Vite proxy (local dev)';
+    }
+
+    function timingClass(ms) {
+      if (ms < 400)  return 'timing-fast';
+      if (ms < 2000) return 'timing-mid';
+      return 'timing-slow';
+    }
+
+    function metaBar(ms, status, label) {
+      const cls = timingClass(ms);
+      const sc  = status < 300 ? 'http-code-2' : 'http-code-4';
+      return `<div class="flex items-center gap-3 mb-4 flex-wrap">
+        <span class="chip ${cls} text-[11px] px-2 py-1">⚡ ${ms}ms</span>
+        <span class="font-mono text-[11px] ${sc}">${status}</span>
+        <span class="text-xs text-zinc-500">${label}</span>
+      </div>`;
+    }
+
+    function rawJson(data) {
+      return `<details><summary>View raw JSON</summary><pre class="raw-json mt-2">${JSON.stringify(data, null, 2)}</pre></details>`;
+    }
+
+    function setLoading(id) {
+      document.getElementById(id).innerHTML =
+        `<div class="flex items-center gap-2 text-xs text-zinc-600"><div class="spinner"></div> Sending…</div>`;
+    }
+
+    function renderError(err, status) {
+      const sp = status ? `<span class="font-mono text-[11px] http-code-4 mr-2">${status}</span>` : '';
+      return `<div class="error-msg">${sp}${err.message || JSON.stringify(err)}</div>`;
+    }
+
+    function toggleCard(id) {
+      const body    = document.getElementById('body-' + id);
+      const chevron = document.getElementById('chevron-' + id);
+      const isOpen  = !body.classList.contains('hidden');
+      body.classList.toggle('hidden', isOpen);
+      chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
+    }
+
+    function setSample(el) {
+      document.getElementById('chat-message').value = el.textContent;
+    }
+
+    // ── GET /health ───────────────────────────────────────────────────────────
+    async function runHealth() {
+      setLoading('result-health');
+      const t0 = performance.now();
+      let res, json;
+      try {
+        res  = await fetch(resolveUrl('/health'));
+        json = await res.json();
+      } catch (e) {
+        document.getElementById('result-health').innerHTML = renderError(e);
+        return;
+      }
+      const ms = Math.round(performance.now() - t0);
+      document.getElementById('result-health').innerHTML =
+        metaBar(ms, res.status, res.ok ? 'backend is up' : 'backend error') +
+        (res.ok
+          ? `<div class="success-msg">✓ ${json.status}</div>`
+          : `<div class="error-msg">${JSON.stringify(json)}</div>`);
+    }
+
+    // ── POST /chat (SSE streaming) ────────────────────────────────────────────
+    function toolCallHtml(tool, input) {
+      const inputStr = JSON.stringify(input, null, 2);
+      return `<div class="sse-tool">
+        <span class="sse-tool-icon">⚙</span>
+        <div>
+          <div class="sse-tool-name">${tool}</div>
+          <div class="sse-tool-input">${inputStr}</div>
+        </div>
+      </div>`;
+    }
+
+    async function runChat() {
+      const message   = document.getElementById('chat-message').value.trim();
+      const sessionId = document.getElementById('chat-session').value.trim();
+      if (!message) {
+        document.getElementById('result-chat').innerHTML =
+          `<div class="error-msg">Enter a message first.</div>`;
+        return;
+      }
+
+      if (_abortCtrl) _abortCtrl.abort();
+      _abortCtrl = new AbortController();
+
+      document.getElementById('chat-btn').disabled = true;
+      document.getElementById('chat-stop').style.display = '';
+
+      const streamEl = document.createElement('div');
+      streamEl.className = 'sse-stream';
+      document.getElementById('result-chat').innerHTML = '';
+      document.getElementById('result-chat').appendChild(streamEl);
+
+      let toolsHtml   = '';
+      let answerText  = '';
+      let gotSessionId = '';
+      const t0 = performance.now();
+
+      function render(cursor) {
+        streamEl.innerHTML =
+          (toolsHtml || '') +
+          (answerText
+            ? `<div class="sse-answer mt-2">${escHtml(answerText)}${cursor ? '<span class="sse-cursor"></span>' : ''}</div>`
+            : '') +
+          (gotSessionId
+            ? `<div class="sse-session">session_id: ${gotSessionId} <button onclick="useSession('${gotSessionId}')" style="margin-left:8px;padding:1px 7px;border-radius:4px;font-size:0.63rem;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);color:#818cf8;cursor:pointer">Use</button></div>`
+            : '');
+      }
+
+      try {
+        const res = await fetch(resolveUrl('/chat'), {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ message, ...(sessionId ? { session_id: sessionId } : {}) }),
+          signal:  _abortCtrl.signal,
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: res.statusText }));
+          document.getElementById('result-chat').innerHTML =
+            metaBar(Math.round(performance.now() - t0), res.status, 'error') +
+            `<div class="error-msg">${err.detail || JSON.stringify(err)}</div>`;
+          return;
+        }
+
+        const reader  = res.body.getReader();
+        const decoder = new TextDecoder();
+        let   buffer  = '';
+
+        render(true);
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            let evt;
+            try { evt = JSON.parse(line.slice(6)); } catch { continue; }
+
+            if (evt.type === 'tool_call') {
+              toolsHtml += toolCallHtml(evt.tool, evt.input);
+              render(true);
+            } else if (evt.type === 'token') {
+              answerText += evt.text;
+              render(true);
+            } else if (evt.type === 'session_id') {
+              gotSessionId = evt.session_id;
+              document.getElementById('chat-session').value   = evt.session_id;
+              document.getElementById('history-session').value = evt.session_id;
+              render(true);
+            } else if (evt.type === 'done') {
+              const ms = Math.round(performance.now() - t0);
+              render(false);
+              const metaDiv = document.createElement('div');
+              metaDiv.innerHTML = metaBar(ms, 200, `${(evt.messages || []).length} messages in session`);
+              document.getElementById('result-chat').insertBefore(metaDiv, streamEl);
+            }
+          }
+        }
+      } catch (e) {
+        if (e.name !== 'AbortError') {
+          document.getElementById('result-chat').innerHTML = renderError(e);
+        }
+      } finally {
+        document.getElementById('chat-btn').disabled = false;
+        document.getElementById('chat-stop').style.display = 'none';
+        _abortCtrl = null;
+        render(false);
+      }
+    }
+
+    function stopChat() {
+      if (_abortCtrl) _abortCtrl.abort();
+    }
+
+    function useSession(id) {
+      document.getElementById('chat-session').value    = id;
+      document.getElementById('history-session').value = id;
+    }
+
+    function escHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ── GET /sessions/{id}/history ────────────────────────────────────────────
+    async function runHistory() {
+      const sid = document.getElementById('history-session').value.trim();
+      if (!sid) {
+        document.getElementById('result-history').innerHTML =
+          `<div class="error-msg">Enter a session_id. Run /chat first to get one.</div>`;
+        return;
+      }
+      setLoading('result-history');
+      const t0 = performance.now();
+      let res, json;
+      try {
+        res  = await fetch(resolveUrl(`/sessions/${encodeURIComponent(sid)}/history`));
+        json = await res.json();
+      } catch (e) {
+        document.getElementById('result-history').innerHTML = renderError(e);
+        return;
+      }
+      const ms = Math.round(performance.now() - t0);
+
+      if (!res.ok) {
+        document.getElementById('result-history').innerHTML =
+          metaBar(ms, res.status, 'error') +
+          `<div class="error-msg">${json.detail || JSON.stringify(json)}</div>`;
+        return;
+      }
+
+      const msgs = json.messages || [];
+      const rows = msgs.map(m => {
+        const role    = m.role || '?';
+        const content = typeof m.content === 'string'
+          ? m.content
+          : JSON.stringify(m.content);
+        const roleColor = role === 'user'
+          ? 'color:#a5b4fc'
+          : role === 'assistant' ? 'color:#34d399' : 'color:#fbbf24';
+        return `<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04)">
+          <span style="font-size:0.67rem;font-family:'JetBrains Mono',monospace;font-weight:600;${roleColor}">${role}</span>
+          <p style="font-size:0.75rem;color:#d4d4d8;line-height:1.55;margin-top:3px;white-space:pre-wrap">${escHtml(typeof content === 'string' ? content.slice(0, 600) + (content.length > 600 ? '…' : '') : '')}</p>
+        </div>`;
+      }).join('');
+
+      document.getElementById('result-history').innerHTML =
+        metaBar(ms, res.status, `${msgs.length} message${msgs.length !== 1 ? 's' : ''}`) +
+        `<div style="border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:8px 14px;max-height:320px;overflow-y:auto">${rows || '<p style="color:#52525b;font-size:0.75rem">No messages found.</p>'}</div>` +
+        rawJson(json);
+    }
+
+    // Keyboard shortcuts
+    document.getElementById('chat-message').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) runChat();
+    });
+
+    // Auto-open the chat card
+    toggleCard('chat');
+  </script>
+</body>
+</html>

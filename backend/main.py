@@ -25,6 +25,11 @@ class ChatRequest(BaseModel):
     message: str
 
 
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
 @app.post("/chat")
 async def chat(req: ChatRequest):
     session_id = req.session_id or str(uuid.uuid4())
