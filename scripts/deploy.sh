@@ -107,16 +107,28 @@ _prompt_key() {
       printf '%s' "$_cur"
     fi
   else
-    if [[ "$_req" == required ]]; then
+    local _env_val="${!_label:-}"
+    if [[ -n "$_env_val" ]]; then
+      printf '  Use .env %s (%s...%s) (Y/n): ' \
+        "$_label" "${_env_val:0:8}" "${_env_val: -4}" >&2
+      read -r _ans
+      _ans="${_ans:-Y}"
+      if [[ ! "$_ans" =~ ^[Yy] ]]; then
+        printf '  New value: ' >&2; read -rs _val; printf '\n' >&2
+        printf '%s' "${_val:-$_env_val}"
+      else
+        printf '%s' "$_env_val"
+      fi
+    elif [[ "$_req" == required ]]; then
       printf '  %-24s  (required): ' "$_label" >&2
+      read -rs _val; printf '\n' >&2
+      [[ -z "$_val" ]] && { printf '  Cannot deploy without %s.\n' "$_label" >&2; exit 1; }
+      printf '%s' "$_val"
     else
       printf '  %-24s  (optional, Enter to skip): ' "$_label" >&2
+      read -rs _val; printf '\n' >&2
+      printf '%s' "$_val"
     fi
-    read -rs _val; printf '\n' >&2
-    if [[ -z "$_val" && "$_req" == required ]]; then
-      printf '  Cannot deploy without %s.\n' "$_label" >&2; exit 1
-    fi
-    printf '%s' "$_val"
   fi
 }
 
