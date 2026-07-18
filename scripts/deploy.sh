@@ -261,5 +261,5 @@ printf '  Tear down: ./scripts/infra-down.sh\n'
 
 PORTFOLIO_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/portfolio/scripts/set-live-url.sh"
 if [[ -x "$PORTFOLIO_SCRIPT" ]]; then
-  bash "$PORTFOLIO_SCRIPT" edgarAgent "$FRONTEND_URL" "$BACKEND_URL"
+  bash "$PORTFOLIO_SCRIPT" --tier lite edgarAgent "$FRONTEND_URL" "$BACKEND_URL"
 fi
