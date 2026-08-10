@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
 from agent import run_agent
-from edgar_api import get_filing_aggregates, search_companies, search_filings
+from edgar_api import get_filing_aggregates, search_companies, search_companies_by_entity, search_filings
 from sessions import append_message, get_history
 
 app = FastAPI(title="EDGAR Agent", docs_url=None, redoc_url=None)
@@ -34,7 +34,8 @@ async def root():
             "GET /health": "health check",
             "POST /chat": "stream agent response (SSE)",
             "GET /sessions/{session_id}/history": "conversation history",
-            "GET /companies": "search SEC EDGAR filers by name",
+            "GET /companies": "search filers by registered entity name",
+            "GET /companies/search": "full-text search — filers whose 10-K documents mention the term",
             "GET /filings": "search/list 10-K and other filings",
             "GET /filings/count": "count matching filings",
             "GET /aggregates": "filing counts grouped by month",
@@ -50,6 +51,11 @@ async def health():
 
 @app.get("/companies")
 def companies(q: str = "", limit: int = 20):
+    return search_companies_by_entity(q or "a", limit)
+
+
+@app.get("/companies/search")
+def companies_search(q: str = "", limit: int = 20):
     return search_companies(q or "a", limit)
 
 

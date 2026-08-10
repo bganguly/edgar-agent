@@ -147,14 +147,14 @@
 
 <section class="px-6 pb-24 max-w-5xl mx-auto space-y-5">
 
-  <!-- GET /companies -->
+  <!-- GET /companies (entity name search) -->
   <div class="glass rounded-2xl overflow-hidden">
     <button class="w-full flex items-center justify-between gap-4 px-6 py-4 text-left" onclick="tog('companies')"
       style="transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,0.02)'" onmouseleave="this.style.background=''">
       <div class="flex items-center gap-3 min-w-0">
         <span class="shrink-0 text-11 px-2 py-0\.5 rounded-full font-semibold badge-get">GET</span>
         <span class="font-mono text-sm shrink-0" style="color:#a1a1aa">/companies</span>
-        <span class="text-xs sm-block truncate" style="color:#52525b">Search SEC EDGAR filers by entity name — deduplicated</span>
+        <span class="text-xs sm-block truncate" style="color:#52525b">Search filers by registered entity name — results are companies actually named X</span>
       </div>
       <svg id="chv-companies" class="chevron shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#52525b"><path d="M6 9l6 6 6-6"/></svg>
     </button>
@@ -168,6 +168,30 @@
         <button class="run-btn" id="co-btn" onclick="runCo()"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l14 9-14 9V3z"/></svg>Run</button>
       </div>
       <div id="res-companies"></div>
+    </div>
+  </div>
+
+  <!-- GET /companies/search (full-text search) -->
+  <div class="glass rounded-2xl overflow-hidden">
+    <button class="w-full flex items-center justify-between gap-4 px-6 py-4 text-left" onclick="tog('cosearch')"
+      style="transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,0.02)'" onmouseleave="this.style.background=''">
+      <div class="flex items-center gap-3 min-w-0">
+        <span class="shrink-0 text-11 px-2 py-0\.5 rounded-full font-semibold badge-get">GET</span>
+        <span class="font-mono text-sm shrink-0" style="color:#a1a1aa">/companies/search</span>
+        <span class="text-xs sm-block truncate" style="color:#52525b">Full-text search — returns any filer whose 10-K document mentions the term (not just companies named X)</span>
+      </div>
+      <svg id="chv-cosearch" class="chevron shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#52525b"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div id="bdy-cosearch" class="hidden px-6 pb-6 border-t bdim">
+      <div class="flex flex-wrap items-center justify-between gap-3 pt-4 mb-4">
+        <div class="flex items-center gap-3 flex-wrap">
+          <input id="cos-q" type="text" class="di" placeholder="e.g. nvidia, blockchain, lithium…" style="width:220px"
+            onkeydown="if(event.key==='Enter')runCoSearch()" />
+          <span class="font-mono text-11" style="color:#52525b">limit=<span style="color:#a78bfa">20</span></span>
+        </div>
+        <button class="run-btn" id="cos-btn" onclick="runCoSearch()"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l14 9-14 9V3z"/></svg>Run</button>
+      </div>
+      <div id="res-cosearch"></div>
     </div>
   </div>
 
@@ -433,6 +457,22 @@
       document.getElementById('res-companies').innerHTML=
         meta(ms,`${items.length} compan${items.length!==1?'ies':'y'} returned`)+companyTable(items)+rawJson(j);
     } catch(e){document.getElementById('res-companies').innerHTML=errBox(e.message);}
+    finally{btn.disabled=false;}
+  }
+
+  async function runCoSearch() {
+    const q = document.getElementById('cos-q').value.trim();
+    if (!q) { document.getElementById('res-cosearch').innerHTML='<p style="font-size:.75rem;color:#52525b">Enter a search term above.</p>'; return; }
+    const btn = document.getElementById('cos-btn'); btn.disabled=true;
+    document.getElementById('res-cosearch').innerHTML=spin();
+    const t0=performance.now();
+    try {
+      const r=await fetch(U(`/companies/search?q=${encodeURIComponent(q)}&limit=20`));
+      const j=await r.json(); const ms=Math.round(performance.now()-t0);
+      const items=j.items||[];
+      document.getElementById('res-cosearch').innerHTML=
+        meta(ms,`${items.length} filer${items.length!==1?'s':''} whose 10-K mentions "${q}"`)+companyTable(items)+rawJson(j);
+    } catch(e){document.getElementById('res-cosearch').innerHTML=errBox(e.message);}
     finally{btn.disabled=false;}
   }
 

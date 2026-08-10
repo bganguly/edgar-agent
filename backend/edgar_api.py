@@ -82,6 +82,37 @@ def search_filings(
     return {"items": items, "total": total}
 
 
+def search_companies_by_entity(q: str, limit: int = 20) -> dict:
+    """Lookup filers by registered entity name (EDGAR entity= field, not full-text)."""
+    params: dict = {
+        "entity": q,
+        "_source": "display_names,ciks,biz_locations,inc_states",
+        "forms": "10-K",
+        "size": min(limit * 4, 100),
+    }
+    data = _edgar_search(params)
+    hits = data.get("hits", {}).get("hits", [])
+
+    seen: set[str] = set()
+    items = []
+    for hit in hits:
+        src = hit.get("_source", {})
+        name = _parse_display_name(src.get("display_names", []))
+        cik = (src.get("ciks") or [""])[0].lstrip("0") or "0"
+        if name and cik not in seen:
+            seen.add(cik)
+            items.append({
+                "entity_name": name,
+                "cik": cik,
+                "biz_location": (src.get("biz_locations") or [""])[0],
+                "inc_states": ", ".join(src.get("inc_states") or []),
+            })
+        if len(items) >= limit:
+            break
+
+    return {"items": items, "total": len(items)}
+
+
 def search_companies(q: str, limit: int = 20) -> dict:
     params: dict = {
         "q": f'"{q}"',
