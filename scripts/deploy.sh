@@ -40,7 +40,7 @@ if [[ "$TARGET" == "local" ]]; then
   pip install -q -r "$ROOT/requirements.txt"
   uvicorn main:app --host 0.0.0.0 --port 8000 --reload &
   BACKEND_PID=$!
-  echo "Backend  → http://localhost:8000/docs"
+  echo "Backend  → http://localhost:8000/health"
 
   cd "$ROOT/frontend"
   [[ -d node_modules ]] || npm install
@@ -255,7 +255,7 @@ ENVEOF
 
 printf '\n✓ EDGAR Agent live (Cloud Run)\n'
 printf '  App:       %s\n' "$FRONTEND_URL"
-printf '  API:       %s/docs\n' "$BACKEND_URL"
+printf '  API:       %s\n' "$BACKEND_URL"
 printf '  Cost:      ~$0/mo  (Cloud Run free tier)\n'
 printf '  Tear down: ./scripts/infra-down.sh\n'
 
