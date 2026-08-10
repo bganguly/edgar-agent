@@ -210,7 +210,7 @@
       <div class="flex flex-wrap items-center justify-between gap-3 pt-4 mb-4">
         <div class="flex items-center gap-2 flex-wrap">
           <span class="font-mono text-11" style="color:#52525b">form=<span style="color:#a78bfa">10-K</span></span>
-          <span class="font-mono text-11" style="color:#52525b">pageSize=<span style="color:#a78bfa">20</span></span>
+          <span class="font-mono text-11" style="color:#52525b">pageSize=<span style="color:#a78bfa">10</span></span>
           <span class="font-mono text-11" style="color:#52525b">page=<span style="color:#a78bfa">1</span></span>
         </div>
         <button class="run-btn" id="fi-btn" onclick="runFi()"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l14 9-14 9V3z"/></svg>Run</button>
@@ -394,6 +394,8 @@
 
 <script>
   let _abort = null;
+  let _fiPage = 1;
+  let _fsPage = 1, _fsEntity = '', _fsQ = '', _fsFrom = '', _fsTo = '';
   document.getElementById('agg-to').value = new Date().toISOString().slice(0,10);
 
   function base() { return document.getElementById('base-input').value.trim().replace(/\/$/,''); }
@@ -412,6 +414,17 @@
   }
   function spin() { return `<div style="display:flex;align-items:center;gap:8px;font-size:.75rem;color:#52525b"><div class="spinner"></div>Sending request…</div>`; }
   function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function paginator(page, total, pageSize, prevExpr, nextExpr) {
+    const totalPages = Math.max(Math.ceil(total/pageSize), 1);
+    if (totalPages <= 1) return '';
+    const hasPrev = page > 1, hasNext = page < totalPages;
+    const on  = 'display:inline-flex;align-items:center;padding:4px 12px;border-radius:6px;font-size:.72rem;font-weight:600;border:1px solid rgba(139,92,246,0.4);color:#c4b5fd;cursor:pointer;background:rgba(139,92,246,0.15)';
+    const off = 'display:inline-flex;align-items:center;padding:4px 12px;border-radius:6px;font-size:.72rem;font-weight:600;border:1px solid rgba(255,255,255,0.08);color:#3f3f46;cursor:not-allowed';
+    const prev = hasPrev ? `<button style="${on}" onclick="${prevExpr}">← Prev</button>` : `<button disabled style="${off}">← Prev</button>`;
+    const next = hasNext ? `<button style="${on}" onclick="${nextExpr}">Next →</button>` : `<button disabled style="${off}">Next →</button>`;
+    return `<div style="display:flex;align-items:center;gap:12px;margin-top:12px">${prev}<span style="font-size:.72rem;color:#71717a">Page ${page} of ${totalPages}</span>${next}</div>`;
+  }
 
   function rawJson(d) {
     const enc = esc(JSON.stringify(d,null,2));
@@ -476,40 +489,51 @@
     finally{btn.disabled=false;}
   }
 
-  async function runFi() {
+  async function runFi(page) {
+    _fiPage = (page !== undefined) ? page : 1;
     const btn=document.getElementById('fi-btn'); btn.disabled=true;
     document.getElementById('res-filings').innerHTML=spin();
     const t0=performance.now();
     try {
-      const r=await fetch(U('/filings?form=10-K&pageSize=20&page=1'));
+      const r=await fetch(U(`/filings?form=10-K&pageSize=10&page=${_fiPage}`));
       const j=await r.json(); const ms=Math.round(performance.now()-t0);
-      const items=j.items||[];
+      const items=j.items||[]; const total=Number(j.total||0); const pg=_fiPage;
       document.getElementById('res-filings').innerHTML=
-        meta(ms,`${Number(j.total||0).toLocaleString()} total · showing first ${items.length}`)+filingTable(items)+rawJson(j);
+        meta(ms,`${total.toLocaleString()} total · showing page ${pg}`)+
+        filingTable(items)+
+        paginator(pg,total,10,`runFi(${pg-1})`,`runFi(${pg+1})`)+
+        rawJson(j);
     } catch(e){document.getElementById('res-filings').innerHTML=errBox(e.message);}
     finally{btn.disabled=false;}
   }
 
-  async function runFs() {
-    const entity=document.getElementById('fs-entity').value.trim();
-    const q=document.getElementById('fs-q').value.trim();
-    const from=document.getElementById('fs-from').value;
-    const to=document.getElementById('fs-to').value;
-    if (!entity&&!q){document.getElementById('res-fsearch').innerHTML='<p style="font-size:.75rem;color:#52525b">Enter an entity name or search term above.</p>';return;}
+  async function runFs(page) {
+    if (page === undefined) {
+      _fsEntity=document.getElementById('fs-entity').value.trim();
+      _fsQ=document.getElementById('fs-q').value.trim();
+      _fsFrom=document.getElementById('fs-from').value;
+      _fsTo=document.getElementById('fs-to').value;
+      if (!_fsEntity&&!_fsQ){document.getElementById('res-fsearch').innerHTML='<p style="font-size:.75rem;color:#52525b">Enter an entity name or search term above.</p>';return;}
+      _fsPage=1;
+    } else {
+      _fsPage=page;
+    }
     const btn=document.getElementById('fs-btn'); btn.disabled=true;
     document.getElementById('res-fsearch').innerHTML=spin();
     const t0=performance.now();
     try {
-      const p=new URLSearchParams({pageSize:'20',page:'1'});
-      if(entity)p.set('entity',entity); if(q)p.set('q',q);
-      if(from)p.set('from',from); if(to)p.set('to',to);
+      const p=new URLSearchParams({pageSize:'10',page:String(_fsPage)});
+      if(_fsEntity)p.set('entity',_fsEntity); if(_fsQ)p.set('q',_fsQ);
+      if(_fsFrom)p.set('from',_fsFrom); if(_fsTo)p.set('to',_fsTo);
       const r=await fetch(U(`/filings?${p}`));
       const j=await r.json(); const ms=Math.round(performance.now()-t0);
-      const items=j.items||[];
-      const label=entity?`"${entity}"`:`"${q}"`;
+      const items=j.items||[]; const total=Number(j.total||0); const pg=_fsPage;
+      const label=_fsEntity?`"${_fsEntity}"`:`"${_fsQ}"`;
       document.getElementById('res-fsearch').innerHTML=
-        meta(ms,`${Number(j.total||0).toLocaleString()} match${j.total!==1?'es':''} for ${label} · showing ${items.length}`)+
-        (items.length?filingTable(items):'<p style="font-size:.75rem;color:#71717a">No results.</p>')+rawJson(j);
+        meta(ms,`${total.toLocaleString()} match${total!==1?'es':''} for ${label} · page ${pg}`)+
+        (items.length?filingTable(items):'<p style="font-size:.75rem;color:#71717a">No results.</p>')+
+        paginator(pg,total,10,`runFs(${pg-1})`,`runFs(${pg+1})`)+
+        rawJson(j);
     } catch(e){document.getElementById('res-fsearch').innerHTML=errBox(e.message);}
     finally{btn.disabled=false;}
   }
