@@ -3,6 +3,8 @@
 from collections import defaultdict
 from typing import Optional
 
+import re
+
 import httpx
 from bs4 import BeautifulSoup, NavigableString
 
@@ -84,12 +86,17 @@ def search_filings(
     return {"items": items, "total": total}
 
 
+def _extract_cik(href: str) -> str:
+    """Extract numeric CIK from an EDGAR href, handling both & and &amp; encoding."""
+    m = re.search(r'CIK=(\d+)', href, re.IGNORECASE)
+    return (m.group(1).lstrip("0") or "0") if m else ""
+
+
 def search_companies_by_entity(q: str, limit: int = 20) -> dict:
     """Lookup filers by registered entity name via EDGAR company search HTML (registrant-name filter)."""
     params = {
         "company": q,
         "action": "getcompany",
-        "type": "10-K",
         "owner": "include",
         "count": min(limit, 100),
         "search_text": "",
@@ -106,19 +113,18 @@ def search_companies_by_entity(q: str, limit: int = 20) -> dict:
     # company's filings page directly. Detect this by looking for companyName span.
     company_span = soup.find("span", class_="companyName")
     if company_span:
+        # Name: first non-empty text node, or full span text before "CIK" as fallback
         name = next(
             (c.strip() for c in company_span.children if isinstance(c, NavigableString) and c.strip()),
             "",
         )
+        if not name:
+            name = company_span.get_text(separator=" ").split("CIK")[0].strip()
+
         cik_link = company_span.find("a")
-        raw_cik = ""
-        if cik_link:
-            href = cik_link.get("href", "")
-            for part in href.split("&"):
-                if part.upper().startswith("CIK="):
-                    raw_cik = part.split("=", 1)[1]
-                    break
-        cik = raw_cik.lstrip("0") or "0"
+        href = cik_link.get("href", "") if cik_link else ""
+        cik = _extract_cik(href)
+
         if name and cik:
             return {"items": [{"entity_name": name, "cik": cik, "biz_location": "", "inc_states": ""}], "total": 1}
         return {"items": [], "total": 0}
@@ -136,8 +142,8 @@ def search_companies_by_entity(q: str, limit: int = 20) -> dict:
             continue
 
         cik_link = cells[0].find("a")
-        raw_cik = cik_link.get_text(strip=True) if cik_link else ""
-        cik = raw_cik.lstrip("0") or "0"
+        href0 = cik_link.get("href", "") if cik_link else ""
+        cik = _extract_cik(href0) or (cik_link.get_text(strip=True).lstrip("0") or "0" if cik_link else "")
 
         name = next(
             (c.strip() for c in cells[1].children if isinstance(c, NavigableString) and c.strip()),
