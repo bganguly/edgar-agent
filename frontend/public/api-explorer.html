@@ -459,27 +459,39 @@
     return `<div style="overflow-x:auto;border-radius:.75rem;border:1px solid rgba(255,255,255,0.06)"><table style="width:100%;border-collapse:collapse"><thead><tr>${[['#'],['Company'],['CIK'],['Location'],['State']].map(([h])=>TH(h)).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
   }
 
+  function initPagedResult(id) {
+    document.getElementById('res-'+id).innerHTML =
+      `<div id="res-${id}-meta"></div><div id="res-${id}-body">${spin()}</div><div id="res-${id}-pager"></div><div id="res-${id}-raw"></div>`;
+  }
+  function setPagedResult(id, metaHtml, bodyHtml, pagerHtml, rawHtml) {
+    document.getElementById('res-'+id+'-meta').innerHTML  = metaHtml;
+    document.getElementById('res-'+id+'-body').innerHTML  = bodyHtml;
+    document.getElementById('res-'+id+'-pager').innerHTML = pagerHtml;
+    document.getElementById('res-'+id+'-raw').innerHTML   = rawHtml;
+  }
+
   async function runCo(page) {
     if (page === undefined) {
       _coQ = document.getElementById('co-q').value.trim();
       if (!_coQ) { document.getElementById('res-companies').innerHTML='<p style="font-size:.75rem;color:#52525b">Enter a company name above.</p>'; return; }
       _coPage = 1;
+      initPagedResult('companies');
     } else {
       _coPage = page;
+      document.getElementById('res-companies-body').innerHTML = spin();
     }
     const btn = document.getElementById('co-btn'); btn.disabled=true;
-    document.getElementById('res-companies').innerHTML=spin();
     const t0=performance.now();
     try {
       const r=await fetch(U(`/companies?q=${encodeURIComponent(_coQ)}&page=${_coPage}&pageSize=10`));
       const j=await r.json(); const ms=Math.round(performance.now()-t0);
       const items=j.items||[]; const total=Number(j.total||0); const pg=_coPage;
-      document.getElementById('res-companies').innerHTML=
-        meta(ms,`${total.toLocaleString()} compan${total!==1?'ies':'y'} found · page ${pg}`)+
-        companyTable(items)+
-        paginator(pg,total,10,`runCo(${pg-1})`,`runCo(${pg+1})`)+
-        rawJson(j);
-    } catch(e){document.getElementById('res-companies').innerHTML=errBox(e.message);}
+      setPagedResult('companies',
+        meta(ms,`${total.toLocaleString()} compan${total!==1?'ies':'y'} found`),
+        companyTable(items),
+        paginator(pg,total,10,`runCo(${pg-1})`,`runCo(${pg+1})`),
+        rawJson(j));
+    } catch(e){document.getElementById('res-companies-body').innerHTML=errBox(e.message);}
     finally{btn.disabled=false;}
   }
 
@@ -488,40 +500,46 @@
       _cosQ = document.getElementById('cos-q').value.trim();
       if (!_cosQ) { document.getElementById('res-cosearch').innerHTML='<p style="font-size:.75rem;color:#52525b">Enter a search term above.</p>'; return; }
       _cosPage = 1;
+      initPagedResult('cosearch');
     } else {
       _cosPage = page;
+      document.getElementById('res-cosearch-body').innerHTML = spin();
     }
     const btn = document.getElementById('cos-btn'); btn.disabled=true;
-    document.getElementById('res-cosearch').innerHTML=spin();
     const t0=performance.now();
     try {
       const r=await fetch(U(`/companies/search?q=${encodeURIComponent(_cosQ)}&page=${_cosPage}&pageSize=10`));
       const j=await r.json(); const ms=Math.round(performance.now()-t0);
       const items=j.items||[]; const total=Number(j.total||0); const pg=_cosPage;
-      document.getElementById('res-cosearch').innerHTML=
-        meta(ms,`${total.toLocaleString()} filer${total!==1?'s':''} whose 10-K mentions "${_cosQ}" · page ${pg}`)+
-        companyTable(items)+
-        paginator(pg,total,10,`runCoSearch(${pg-1})`,`runCoSearch(${pg+1})`)+
-        rawJson(j);
-    } catch(e){document.getElementById('res-cosearch').innerHTML=errBox(e.message);}
+      setPagedResult('cosearch',
+        meta(ms,`${total.toLocaleString()} filer${total!==1?'s':''} whose 10-K mentions "${_cosQ}"`),
+        companyTable(items),
+        paginator(pg,total,10,`runCoSearch(${pg-1})`,`runCoSearch(${pg+1})`),
+        rawJson(j));
+    } catch(e){document.getElementById('res-cosearch-body').innerHTML=errBox(e.message);}
     finally{btn.disabled=false;}
   }
 
   async function runFi(page) {
-    _fiPage = (page !== undefined) ? page : 1;
+    if (page === undefined) {
+      _fiPage = 1;
+      initPagedResult('filings');
+    } else {
+      _fiPage = page;
+      document.getElementById('res-filings-body').innerHTML = spin();
+    }
     const btn=document.getElementById('fi-btn'); btn.disabled=true;
-    document.getElementById('res-filings').innerHTML=spin();
     const t0=performance.now();
     try {
       const r=await fetch(U(`/filings?form=10-K&pageSize=10&page=${_fiPage}`));
       const j=await r.json(); const ms=Math.round(performance.now()-t0);
       const items=j.items||[]; const total=Number(j.total||0); const pg=_fiPage;
-      document.getElementById('res-filings').innerHTML=
-        meta(ms,`${total.toLocaleString()} total · showing page ${pg}`)+
-        filingTable(items)+
-        paginator(pg,total,10,`runFi(${pg-1})`,`runFi(${pg+1})`)+
-        rawJson(j);
-    } catch(e){document.getElementById('res-filings').innerHTML=errBox(e.message);}
+      setPagedResult('filings',
+        meta(ms,`${total.toLocaleString()} total 10-K filings`),
+        filingTable(items),
+        paginator(pg,total,10,`runFi(${pg-1})`,`runFi(${pg+1})`),
+        rawJson(j));
+    } catch(e){document.getElementById('res-filings-body').innerHTML=errBox(e.message);}
     finally{btn.disabled=false;}
   }
 
@@ -533,11 +551,12 @@
       _fsTo=document.getElementById('fs-to').value;
       if (!_fsEntity&&!_fsQ){document.getElementById('res-fsearch').innerHTML='<p style="font-size:.75rem;color:#52525b">Enter an entity name or search term above.</p>';return;}
       _fsPage=1;
+      initPagedResult('fsearch');
     } else {
       _fsPage=page;
+      document.getElementById('res-fsearch-body').innerHTML = spin();
     }
     const btn=document.getElementById('fs-btn'); btn.disabled=true;
-    document.getElementById('res-fsearch').innerHTML=spin();
     const t0=performance.now();
     try {
       const p=new URLSearchParams({pageSize:'10',page:String(_fsPage)});
@@ -547,12 +566,12 @@
       const j=await r.json(); const ms=Math.round(performance.now()-t0);
       const items=j.items||[]; const total=Number(j.total||0); const pg=_fsPage;
       const label=_fsEntity?`"${_fsEntity}"`:`"${_fsQ}"`;
-      document.getElementById('res-fsearch').innerHTML=
-        meta(ms,`${total.toLocaleString()} match${total!==1?'es':''} for ${label} · page ${pg}`)+
-        (items.length?filingTable(items):'<p style="font-size:.75rem;color:#71717a">No results.</p>')+
-        paginator(pg,total,10,`runFs(${pg-1})`,`runFs(${pg+1})`)+
-        rawJson(j);
-    } catch(e){document.getElementById('res-fsearch').innerHTML=errBox(e.message);}
+      setPagedResult('fsearch',
+        meta(ms,`${total.toLocaleString()} match${total!==1?'es':''} for ${label}`),
+        items.length?filingTable(items):'<p style="font-size:.75rem;color:#71717a">No results.</p>',
+        paginator(pg,total,10,`runFs(${pg-1})`,`runFs(${pg+1})`),
+        rawJson(j));
+    } catch(e){document.getElementById('res-fsearch-body').innerHTML=errBox(e.message);}
     finally{btn.disabled=false;}
   }
 
