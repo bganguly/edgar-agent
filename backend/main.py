@@ -53,7 +53,10 @@ async def health():
 def companies(q: str = "", page: int = 1, pageSize: int = 10):
     pageSize = min(pageSize, 10)
     offset = (page - 1) * pageSize
-    result = search_companies_by_entity(q or "a", limit=100)
+    try:
+        result = search_companies_by_entity(q or "a", limit=100)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"EDGAR unavailable: {e}")
     items = result["items"]
     return {"items": items[offset : offset + pageSize], "total": len(items), "page": page, "pageSize": pageSize}
 
@@ -62,7 +65,10 @@ def companies(q: str = "", page: int = 1, pageSize: int = 10):
 def companies_search(q: str = "", page: int = 1, pageSize: int = 10):
     pageSize = min(pageSize, 10)
     offset = (page - 1) * pageSize
-    result = search_companies(q or "a", limit=100)
+    try:
+        result = search_companies(q or "a", limit=100)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"EDGAR unavailable: {e}")
     items = result["items"]
     return {"items": items[offset : offset + pageSize], "total": len(items), "page": page, "pageSize": pageSize}
 
@@ -75,7 +81,10 @@ def filings_count(
     from_: Optional[str] = Query(None, alias="from"),
     to: Optional[str] = None,
 ):
-    result = search_filings(q, entity, form, from_, to, offset=0, size=100)
+    try:
+        result = search_filings(q, entity, form, from_, to, offset=0, size=100)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"EDGAR unavailable: {e}")
     return {"total": result["total"]}
 
 
@@ -91,7 +100,10 @@ def filings(
 ):
     pageSize = min(pageSize, 10)
     offset = (page - 1) * pageSize
-    result = search_filings(q, entity, form, from_, to, offset, pageSize)
+    try:
+        result = search_filings(q, entity, form, from_, to, offset, pageSize)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"EDGAR unavailable: {e}")
     return {**result, "page": page, "pageSize": pageSize}
 
 
@@ -102,7 +114,10 @@ def aggregates(
     form: Optional[str] = None,
     q: Optional[str] = None,
 ):
-    return get_filing_aggregates(from_, to, form, q)
+    try:
+        return get_filing_aggregates(from_, to, form, q)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"EDGAR unavailable: {e}")
 
 
 @app.get("/dataset-bounds")

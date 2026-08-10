@@ -484,8 +484,9 @@
     const t0=performance.now();
     try {
       const r=await fetch(U(`/companies?q=${encodeURIComponent(_coQ)}&page=${_coPage}&pageSize=10`));
-      const j=await r.json(); const ms=Math.round(performance.now()-t0);
-      const items=j.items||[]; const total=Number(j.total||0); const pg=_coPage;
+      const ms=Math.round(performance.now()-t0);
+      if(!r.ok){const err=await r.json().catch(()=>({detail:r.statusText}));document.getElementById('res-companies-body').innerHTML=errBox(err.detail||r.statusText);return;}
+      const j=await r.json(); const items=j.items||[]; const total=Number(j.total||0); const pg=_coPage;
       setPagedResult('companies',
         meta(ms,`${total.toLocaleString()} compan${total!==1?'ies':'y'} found`),
         companyTable(items),
@@ -509,8 +510,9 @@
     const t0=performance.now();
     try {
       const r=await fetch(U(`/companies/search?q=${encodeURIComponent(_cosQ)}&page=${_cosPage}&pageSize=10`));
-      const j=await r.json(); const ms=Math.round(performance.now()-t0);
-      const items=j.items||[]; const total=Number(j.total||0); const pg=_cosPage;
+      const ms=Math.round(performance.now()-t0);
+      if(!r.ok){const err=await r.json().catch(()=>({detail:r.statusText}));document.getElementById('res-cosearch-body').innerHTML=errBox(err.detail||r.statusText);return;}
+      const j=await r.json(); const items=j.items||[]; const total=Number(j.total||0); const pg=_cosPage;
       setPagedResult('cosearch',
         meta(ms,`${total.toLocaleString()} filer${total!==1?'s':''} whose 10-K mentions "${_cosQ}"`),
         companyTable(items),
@@ -532,8 +534,9 @@
     const t0=performance.now();
     try {
       const r=await fetch(U(`/filings?form=10-K&pageSize=10&page=${_fiPage}`));
-      const j=await r.json(); const ms=Math.round(performance.now()-t0);
-      const items=j.items||[]; const total=Number(j.total||0); const pg=_fiPage;
+      const ms=Math.round(performance.now()-t0);
+      if(!r.ok){const err=await r.json().catch(()=>({detail:r.statusText}));document.getElementById('res-filings-body').innerHTML=errBox(err.detail||r.statusText);return;}
+      const j=await r.json(); const items=j.items||[]; const total=Number(j.total||0); const pg=_fiPage;
       setPagedResult('filings',
         meta(ms,`${total.toLocaleString()} total 10-K filings`),
         filingTable(items),
@@ -563,8 +566,9 @@
       if(_fsEntity)p.set('entity',_fsEntity); if(_fsQ)p.set('q',_fsQ);
       if(_fsFrom)p.set('from',_fsFrom); if(_fsTo)p.set('to',_fsTo);
       const r=await fetch(U(`/filings?${p}`));
-      const j=await r.json(); const ms=Math.round(performance.now()-t0);
-      const items=j.items||[]; const total=Number(j.total||0); const pg=_fsPage;
+      const ms=Math.round(performance.now()-t0);
+      if(!r.ok){const err=await r.json().catch(()=>({detail:r.statusText}));document.getElementById('res-fsearch-body').innerHTML=errBox(err.detail||r.statusText);return;}
+      const j=await r.json(); const items=j.items||[]; const total=Number(j.total||0); const pg=_fsPage;
       const label=_fsEntity?`"${_fsEntity}"`:`"${_fsQ}"`;
       setPagedResult('fsearch',
         meta(ms,`${total.toLocaleString()} match${total!==1?'es':''} for ${label}`),

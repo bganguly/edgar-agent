@@ -20,12 +20,9 @@ def _filing_url(acc_num: str) -> str:
 
 
 def _edgar_search(params: dict) -> dict:
-    try:
-        resp = httpx.get(EDGAR_SEARCH_API, params=params, headers=_HEADERS, timeout=15)
-        resp.raise_for_status()
-        return resp.json()
-    except Exception as e:
-        return {"error": str(e), "hits": {"hits": [], "total": {"value": 0}}}
+    resp = httpx.get(EDGAR_SEARCH_API, params=params, headers=_HEADERS, timeout=15)
+    resp.raise_for_status()
+    return resp.json()
 
 
 def _parse_display_name(display_names: list) -> str:
@@ -100,11 +97,8 @@ def search_companies_by_entity(q: str, limit: int = 20) -> dict:
         "count": min(limit, 100),
         "search_text": "",
     }
-    try:
-        resp = httpx.get(EDGAR_BROWSE, params=params, headers=_HEADERS, timeout=15)
-        resp.raise_for_status()
-    except Exception:
-        return {"items": [], "total": 0}
+    resp = httpx.get(EDGAR_BROWSE, params=params, headers=_HEADERS, timeout=15)
+    resp.raise_for_status()
 
     soup = BeautifulSoup(resp.text, "lxml")
 
