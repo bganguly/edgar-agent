@@ -4,13 +4,80 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>API Explorer — EDGAR 10-K Agent</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','system-ui','sans-serif'],mono:['JetBrains Mono','monospace']}}}}</script>
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
   <style>
-    body{background:#0f0f13}
+    /* ── Reset ── */
+    *,*::before,*::after{box-sizing:border-box}
+    body,h1,p,figure{margin:0}
+    button{background:none;border:none;cursor:pointer;font:inherit}
+    table{border-collapse:collapse}
+    input,textarea{font:inherit}
+
+    /* ── Base ── */
+    body{font-family:'Inter',system-ui,sans-serif;background:#0f0f13;color:#f4f4f5;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;min-height:100vh}
+
+    /* ── Layout utilities ── */
+    .flex{display:flex}.inline-flex{display:inline-flex}.inline-block{display:inline-block}
+    .block{display:block}.grid{display:grid}.hidden{display:none}.fixed{position:fixed}
+    .flex-wrap{flex-wrap:wrap}.flex-col{flex-direction:column}.shrink-0{flex-shrink:0}.flex-1{flex:1 1 0%}
+    .items-center{align-items:center}.items-start{align-items:flex-start}.items-end{align-items:flex-end}
+    .justify-between{justify-content:space-between}
+    .grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .gap-1{gap:.25rem}.gap-1\.5{gap:.375rem}.gap-2{gap:.5rem}.gap-3{gap:.75rem}.gap-4{gap:1rem}
+    .space-y-3>*+*{margin-top:.75rem}.space-y-5>*+*{margin-top:1.25rem}
+
+    /* ── Sizing ── */
+    .w-full{width:100%}.w-1\.5{width:.375rem}.w-3{width:.75rem}
+    .h-1\.5{height:.375rem}.h-3{height:.75rem}.h-14{height:3.5rem}
+    .min-w-0{min-width:0}.min-w-240{min-width:240px}
+    .max-w-5xl{max-width:64rem}.max-w-xl{max-width:36rem}.min-h-screen{min-height:100vh}
+
+    /* ── Position ── */
+    .top-0{top:0}.inset-x-0{left:0;right:0}.z-40{z-index:40}
+    .overflow-hidden{overflow:hidden}.overflow-x-auto{overflow-x:auto}.overflow-y-auto{overflow-y:auto}
+
+    /* ── Spacing ── */
+    .px-2{padding-left:.5rem;padding-right:.5rem}
+    .px-3{padding-left:.75rem;padding-right:.75rem}
+    .px-4{padding-left:1rem;padding-right:1rem}
+    .px-6{padding-left:1.5rem;padding-right:1.5rem}
+    .py-0\.5{padding-top:.125rem;padding-bottom:.125rem}
+    .py-1{padding-top:.25rem;padding-bottom:.25rem}
+    .py-1\.5{padding-top:.375rem;padding-bottom:.375rem}
+    .py-2{padding-top:.5rem;padding-bottom:.5rem}
+    .py-4{padding-top:1rem;padding-bottom:1rem}
+    .pt-4{padding-top:1rem}.pt-28{padding-top:7rem}
+    .pb-6{padding-bottom:1.5rem}.pb-10{padding-bottom:2.5rem}.pb-24{padding-bottom:6rem}
+    .mb-1{margin-bottom:.25rem}.mb-1\.5{margin-bottom:.375rem}.mb-2{margin-bottom:.5rem}
+    .mb-3{margin-bottom:.75rem}.mb-4{margin-bottom:1rem}.mb-5{margin-bottom:1.25rem}
+    .mt-2{margin-top:.5rem}.mt-3{margin-top:.75rem}
+    .mx-auto{margin-left:auto;margin-right:auto}
+
+    /* ── Typography ── */
+    .text-xs{font-size:.75rem;line-height:1rem}.text-sm{font-size:.875rem;line-height:1.25rem}
+    .text-2xl{font-size:1.5rem;line-height:2rem}.text-base{font-size:1rem;line-height:1.5rem}
+    .text-10{font-size:10px}.text-11{font-size:11px}.text-13{font-size:13px}
+    .font-mono{font-family:'JetBrains Mono',monospace}
+    .font-medium{font-weight:500}.font-semibold{font-weight:600}.font-bold{font-weight:700}
+    .uppercase{text-transform:uppercase}.normal-case{text-transform:none}
+    .tracking-widest{letter-spacing:.1em}.tracking-wider{letter-spacing:.05em}
+    .truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .whitespace-nowrap{white-space:nowrap}
+    .text-left{text-align:left}.select-none{user-select:none;-webkit-user-select:none}
+
+    /* ── Borders ── */
+    .rounded-full{border-radius:9999px}.rounded-lg{border-radius:.5rem}
+    .rounded-xl{border-radius:.75rem}.rounded-2xl{border-radius:1rem}
+    .border-t{border-top:1px solid}.border-b{border-bottom:1px solid}
+    .transition-colors{transition:color .15s,background-color .15s,border-color .15s}
+
+    /* ── Responsive ── */
+    @media(min-width:640px){.sm-block{display:block}.sm-grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:639px){.sm-block{display:none}}
+
+    /* ── Component styles ── */
     .glass{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08)}
     .bdim{border-color:rgba(255,255,255,0.06)}
     .badge-get{background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.3);color:#34d399}
@@ -46,18 +113,18 @@
     input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(0.5);cursor:pointer}
   </style>
 </head>
-<body class="text-zinc-100 font-sans antialiased min-h-screen">
+<body>
 
 <nav class="fixed top-0 inset-x-0 z-40 border-b bdim" style="background:rgba(15,15,19,0.9);backdrop-filter:blur(16px)">
   <div class="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
-    <a href="/" class="flex items-center gap-2 text-sm transition-colors" style="color:#71717a"
+    <a href="/" class="flex items-center gap-2 text-sm transition-colors" style="color:#71717a;text-decoration:none"
        onmouseenter="this.style.color='#f4f4f5'" onmouseleave="this.style.color='#71717a'">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M5 12l7-7M5 12l7 7"/></svg>
       App
     </a>
     <div class="flex items-center gap-3">
       <span class="text-xs" style="color:#3f3f46">EDGAR 10-K Agent</span>
-      <span class="text-[11px] px-2 py-0.5 rounded-full font-medium" style="background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);color:#a5b4fc">FastAPI · Agent Loop · SSE</span>
+      <span class="text-11 px-2 py-0\.5 rounded-full font-medium" style="background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);color:#a5b4fc">FastAPI · Agent Loop · SSE</span>
     </div>
   </div>
 </nav>
@@ -69,9 +136,9 @@
     Run real requests against the FastAPI backend — company search, filing lookup, monthly aggregates, and live agent streaming over SEC EDGAR.
   </p>
   <div class="flex flex-wrap items-center gap-3">
-    <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono"
+    <div class="flex items-center gap-1\.5 px-3 py-1\.5 rounded-lg text-xs font-mono"
          style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#52525b">
-      <span class="w-1.5 h-1.5 rounded-full inline-block" style="background:#818cf8"></span>
+      <span class="w-1\.5 h-1\.5 rounded-full inline-block" style="background:#818cf8"></span>
       <span id="base-display">same origin</span>
     </div>
     <input id="base-input" type="text" class="di"
@@ -84,11 +151,12 @@
 
   <!-- GET /companies -->
   <div class="glass rounded-2xl overflow-hidden">
-    <button class="w-full flex items-center justify-between gap-4 px-6 py-4 text-left chdr" onclick="tog('companies')">
+    <button class="w-full flex items-center justify-between gap-4 px-6 py-4 text-left" onclick="tog('companies')"
+      style="transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,0.02)'" onmouseleave="this.style.background=''">
       <div class="flex items-center gap-3 min-w-0">
-        <span class="shrink-0 text-[11px] px-2 py-0.5 rounded-full font-semibold badge-get">GET</span>
-        <span class="font-mono text-[13px] shrink-0" style="color:#a1a1aa">/companies</span>
-        <span class="text-xs hidden sm:block truncate" style="color:#52525b">Search SEC EDGAR filers by entity name — deduplicated</span>
+        <span class="shrink-0 text-11 px-2 py-0\.5 rounded-full font-semibold badge-get">GET</span>
+        <span class="font-mono text-13 shrink-0" style="color:#a1a1aa">/companies</span>
+        <span class="text-xs sm-block truncate" style="color:#52525b">Search SEC EDGAR filers by entity name — deduplicated</span>
       </div>
       <svg id="chv-companies" class="chevron shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#52525b"><path d="M6 9l6 6 6-6"/></svg>
     </button>
@@ -97,7 +165,7 @@
         <div class="flex items-center gap-3 flex-wrap">
           <input id="co-q" type="text" class="di" placeholder="e.g. apple, nvidia, tesla…" style="width:220px"
             onkeydown="if(event.key==='Enter')runCo()" />
-          <span class="font-mono text-[11px]" style="color:#52525b">limit=<span style="color:#a78bfa">20</span></span>
+          <span class="font-mono text-11" style="color:#52525b">limit=<span style="color:#a78bfa">20</span></span>
         </div>
         <button class="run-btn" id="co-btn" onclick="runCo()"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l14 9-14 9V3z"/></svg>Run</button>
       </div>
@@ -107,20 +175,21 @@
 
   <!-- GET /filings (latest) -->
   <div class="glass rounded-2xl overflow-hidden">
-    <button class="w-full flex items-center justify-between gap-4 px-6 py-4 text-left chdr" onclick="tog('filings')">
+    <button class="w-full flex items-center justify-between gap-4 px-6 py-4 text-left" onclick="tog('filings')"
+      style="transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,0.02)'" onmouseleave="this.style.background=''">
       <div class="flex items-center gap-3 min-w-0">
-        <span class="shrink-0 text-[11px] px-2 py-0.5 rounded-full font-semibold badge-get">GET</span>
-        <span class="font-mono text-[13px] shrink-0" style="color:#a1a1aa">/filings</span>
-        <span class="text-xs hidden sm:block truncate" style="color:#52525b">Latest 10-K filings — paginated, most recent first</span>
+        <span class="shrink-0 text-11 px-2 py-0\.5 rounded-full font-semibold badge-get">GET</span>
+        <span class="font-mono text-13 shrink-0" style="color:#a1a1aa">/filings</span>
+        <span class="text-xs sm-block truncate" style="color:#52525b">Latest 10-K filings — paginated, most recent first</span>
       </div>
       <svg id="chv-filings" class="chevron shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#52525b"><path d="M6 9l6 6 6-6"/></svg>
     </button>
     <div id="bdy-filings" class="hidden px-6 pb-6 border-t bdim">
       <div class="flex flex-wrap items-center justify-between gap-3 pt-4 mb-4">
         <div class="flex items-center gap-2 flex-wrap">
-          <span class="font-mono text-[11px]" style="color:#52525b">form=<span style="color:#a78bfa">10-K</span></span>
-          <span class="font-mono text-[11px]" style="color:#52525b">pageSize=<span style="color:#a78bfa">20</span></span>
-          <span class="font-mono text-[11px]" style="color:#52525b">page=<span style="color:#a78bfa">1</span></span>
+          <span class="font-mono text-11" style="color:#52525b">form=<span style="color:#a78bfa">10-K</span></span>
+          <span class="font-mono text-11" style="color:#52525b">pageSize=<span style="color:#a78bfa">20</span></span>
+          <span class="font-mono text-11" style="color:#52525b">page=<span style="color:#a78bfa">1</span></span>
         </div>
         <button class="run-btn" id="fi-btn" onclick="runFi()"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l14 9-14 9V3z"/></svg>Run</button>
       </div>
@@ -130,11 +199,12 @@
 
   <!-- GET /filings?entity= (search) -->
   <div class="glass rounded-2xl overflow-hidden">
-    <button class="w-full flex items-center justify-between gap-4 px-6 py-4 text-left chdr" onclick="tog('fsearch')">
+    <button class="w-full flex items-center justify-between gap-4 px-6 py-4 text-left" onclick="tog('fsearch')"
+      style="transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,0.02)'" onmouseleave="this.style.background=''">
       <div class="flex items-center gap-3 min-w-0">
-        <span class="shrink-0 text-[11px] px-2 py-0.5 rounded-full font-semibold badge-get">GET</span>
-        <span class="font-mono text-[13px] shrink-0" style="color:#a1a1aa">/filings?entity=…</span>
-        <span class="text-xs hidden sm:block truncate" style="color:#52525b">Search filings by entity, text query, form type, date range</span>
+        <span class="shrink-0 text-11 px-2 py-0\.5 rounded-full font-semibold badge-get">GET</span>
+        <span class="font-mono text-13 shrink-0" style="color:#a1a1aa">/filings?entity=…</span>
+        <span class="text-xs sm-block truncate" style="color:#52525b">Search filings by entity, text query, form type, date range</span>
       </div>
       <svg id="chv-fsearch" class="chevron shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#52525b"><path d="M6 9l6 6 6-6"/></svg>
     </button>
@@ -144,11 +214,11 @@
           <input id="fs-entity" type="text" class="di" placeholder="entity, e.g. Tesla" style="width:160px" onkeydown="if(event.key==='Enter')runFs()" />
           <input id="fs-q"      type="text" class="di" placeholder="text search (q=…)"  style="width:150px" onkeydown="if(event.key==='Enter')runFs()" />
           <div class="flex items-center gap-2">
-            <span class="text-[11px]" style="color:#52525b">from</span>
+            <span class="text-11" style="color:#52525b">from</span>
             <input id="fs-from" type="date" class="di" style="width:140px" />
           </div>
           <div class="flex items-center gap-2">
-            <span class="text-[11px]" style="color:#52525b">to</span>
+            <span class="text-11" style="color:#52525b">to</span>
             <input id="fs-to" type="date" class="di" style="width:140px" />
           </div>
         </div>
@@ -160,11 +230,12 @@
 
   <!-- GET /aggregates -->
   <div class="glass rounded-2xl overflow-hidden">
-    <button class="w-full flex items-center justify-between gap-4 px-6 py-4 text-left chdr" onclick="tog('agg')">
+    <button class="w-full flex items-center justify-between gap-4 px-6 py-4 text-left" onclick="tog('agg')"
+      style="transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,0.02)'" onmouseleave="this.style.background=''">
       <div class="flex items-center gap-3 min-w-0">
-        <span class="shrink-0 text-[11px] px-2 py-0.5 rounded-full font-semibold badge-get">GET</span>
-        <span class="font-mono text-[13px] shrink-0" style="color:#a1a1aa">/aggregates</span>
-        <span class="text-xs hidden sm:block truncate" style="color:#52525b">Monthly filing counts — any date range, optional text filter</span>
+        <span class="shrink-0 text-11 px-2 py-0\.5 rounded-full font-semibold badge-get">GET</span>
+        <span class="font-mono text-13 shrink-0" style="color:#a1a1aa">/aggregates</span>
+        <span class="text-xs sm-block truncate" style="color:#52525b">Monthly filing counts — any date range, optional text filter</span>
       </div>
       <svg id="chv-agg" class="chevron shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#52525b"><path d="M6 9l6 6 6-6"/></svg>
     </button>
@@ -172,11 +243,11 @@
       <div class="flex flex-wrap items-center justify-between gap-3 pt-4 mb-4">
         <div class="flex flex-wrap items-center gap-3">
           <div class="flex items-center gap-2">
-            <span class="text-[11px]" style="color:#52525b">from</span>
+            <span class="text-11" style="color:#52525b">from</span>
             <input id="agg-from" type="date" class="di" value="2024-01-01" style="width:140px" />
           </div>
           <div class="flex items-center gap-2">
-            <span class="text-[11px]" style="color:#52525b">to</span>
+            <span class="text-11" style="color:#52525b">to</span>
             <input id="agg-to" type="date" class="di" style="width:140px" />
           </div>
           <input id="agg-q" type="text" class="di" placeholder="optional text filter" style="width:170px" onkeydown="if(event.key==='Enter')runAgg()" />
@@ -189,11 +260,12 @@
 
   <!-- GET /dataset-bounds -->
   <div class="glass rounded-2xl overflow-hidden">
-    <button class="w-full flex items-center justify-between gap-4 px-6 py-4 text-left chdr" onclick="tog('bounds')">
+    <button class="w-full flex items-center justify-between gap-4 px-6 py-4 text-left" onclick="tog('bounds')"
+      style="transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,0.02)'" onmouseleave="this.style.background=''">
       <div class="flex items-center gap-3 min-w-0">
-        <span class="shrink-0 text-[11px] px-2 py-0.5 rounded-full font-semibold badge-get">GET</span>
-        <span class="font-mono text-[13px] shrink-0" style="color:#a1a1aa">/dataset-bounds</span>
-        <span class="text-xs hidden sm:block truncate" style="color:#52525b">Available date range in EDGAR full-text search index</span>
+        <span class="shrink-0 text-11 px-2 py-0\.5 rounded-full font-semibold badge-get">GET</span>
+        <span class="font-mono text-13 shrink-0" style="color:#a1a1aa">/dataset-bounds</span>
+        <span class="text-xs sm-block truncate" style="color:#52525b">Available date range in EDGAR full-text search index</span>
       </div>
       <svg id="chv-bounds" class="chevron shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#52525b"><path d="M6 9l6 6 6-6"/></svg>
     </button>
@@ -208,17 +280,18 @@
 
   <!-- GET /health -->
   <div class="glass rounded-2xl overflow-hidden">
-    <button class="w-full flex items-center justify-between gap-4 px-6 py-4 text-left chdr" onclick="tog('health')">
+    <button class="w-full flex items-center justify-between gap-4 px-6 py-4 text-left" onclick="tog('health')"
+      style="transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,0.02)'" onmouseleave="this.style.background=''">
       <div class="flex items-center gap-3 min-w-0">
-        <span class="shrink-0 text-[11px] px-2 py-0.5 rounded-full font-semibold badge-get">GET</span>
-        <span class="font-mono text-[13px] shrink-0" style="color:#a1a1aa">/health</span>
-        <span class="text-xs hidden sm:block truncate" style="color:#52525b">Liveness probe — confirms the FastAPI container is up</span>
+        <span class="shrink-0 text-11 px-2 py-0\.5 rounded-full font-semibold badge-get">GET</span>
+        <span class="font-mono text-13 shrink-0" style="color:#a1a1aa">/health</span>
+        <span class="text-xs sm-block truncate" style="color:#52525b">Liveness probe — confirms the FastAPI container is up</span>
       </div>
       <svg id="chv-health" class="chevron shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#52525b"><path d="M6 9l6 6 6-6"/></svg>
     </button>
     <div id="bdy-health" class="hidden px-6 pb-6 border-t bdim">
       <div class="flex items-center justify-between pt-4 mb-4">
-        <span class="font-mono text-[11px]" style="color:#52525b">200 { "status": "ok" }</span>
+        <span class="font-mono text-11" style="color:#52525b">200 { "status": "ok" }</span>
         <button class="run-btn" onclick="runHealth()"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l14 9-14 9V3z"/></svg>Ping</button>
       </div>
       <div id="res-health"></div>
@@ -227,26 +300,27 @@
 
   <!-- POST /chat -->
   <div class="glass rounded-2xl overflow-hidden">
-    <button class="w-full flex items-center justify-between gap-4 px-6 py-4 text-left chdr" onclick="tog('chat')">
+    <button class="w-full flex items-center justify-between gap-4 px-6 py-4 text-left" onclick="tog('chat')"
+      style="transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,0.02)'" onmouseleave="this.style.background=''">
       <div class="flex items-center gap-3 min-w-0">
-        <span class="shrink-0 text-[11px] px-2 py-0.5 rounded-full font-semibold badge-post">POST</span>
-        <span class="font-mono text-[13px] shrink-0" style="color:#a1a1aa">/chat</span>
-        <span class="text-xs hidden sm:block truncate" style="color:#52525b">Run the agent loop — streams tool calls and answer tokens via SSE</span>
+        <span class="shrink-0 text-11 px-2 py-0\.5 rounded-full font-semibold badge-post">POST</span>
+        <span class="font-mono text-13 shrink-0" style="color:#a1a1aa">/chat</span>
+        <span class="text-xs sm-block truncate" style="color:#52525b">Run the agent loop — streams tool calls and answer tokens via SSE</span>
       </div>
       <svg id="chv-chat" class="chevron shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#52525b"><path d="M6 9l6 6 6-6"/></svg>
     </button>
     <div id="bdy-chat" class="hidden px-6 pb-6 border-t bdim">
-      <div class="pt-4 mb-4 grid sm:grid-cols-2 gap-4">
+      <div class="pt-4 mb-4 grid sm-grid-cols-2 gap-4">
         <div>
-          <p class="text-[10px] text-zinc-600 uppercase tracking-wider mb-2">Request body</p>
+          <p class="text-10 uppercase tracking-wider mb-2" style="color:#52525b">Request body</p>
           <div class="rj" style="max-height:72px">{ "message": string, "session_id"?: uuid }</div>
         </div>
         <div>
-          <p class="text-[10px] text-zinc-600 uppercase tracking-wider mb-2">SSE event types</p>
+          <p class="text-10 uppercase tracking-wider mb-2" style="color:#52525b">SSE event types</p>
           <div class="rj" style="max-height:72px;color:#52525b">tool_call · token · session_id · done</div>
         </div>
       </div>
-      <p class="text-[10px] text-zinc-600 uppercase tracking-wider mb-2">Sample questions</p>
+      <p class="text-10 uppercase tracking-wider mb-2" style="color:#52525b">Sample questions</p>
       <div class="flex flex-wrap gap-2 mb-4">
         <span class="sq" onclick="setSample(this)">What were Apple's main risk factors in their most recent 10-K?</span>
         <span class="sq" onclick="setSample(this)">How did Tesla describe its revenue growth in 2023?</span>
@@ -255,11 +329,11 @@
       </div>
       <div class="space-y-3 mb-4">
         <div>
-          <label class="text-[10px] text-zinc-600 uppercase tracking-wider block mb-1.5">message</label>
+          <label class="text-10 uppercase tracking-wider block mb-1\.5" style="color:#52525b">message</label>
           <textarea id="chat-msg" class="di" style="width:100%" placeholder="Ask about any public company's 10-K filing…"></textarea>
         </div>
         <div>
-          <label class="text-[10px] text-zinc-600 uppercase tracking-wider block mb-1.5">session_id <span class="text-zinc-700 normal-case">(optional — auto-filled after first response)</span></label>
+          <label class="text-10 uppercase tracking-wider block mb-1\.5" style="color:#52525b">session_id <span style="text-transform:none;color:#3f3f46">(optional — auto-filled after first response)</span></label>
           <input id="chat-sid" type="text" class="di" style="width:100%" placeholder="leave blank to start a new session" />
         </div>
       </div>
@@ -273,18 +347,19 @@
 
   <!-- GET /sessions/{id}/history -->
   <div class="glass rounded-2xl overflow-hidden">
-    <button class="w-full flex items-center justify-between gap-4 px-6 py-4 text-left chdr" onclick="tog('history')">
+    <button class="w-full flex items-center justify-between gap-4 px-6 py-4 text-left" onclick="tog('history')"
+      style="transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,0.02)'" onmouseleave="this.style.background=''">
       <div class="flex items-center gap-3 min-w-0">
-        <span class="shrink-0 text-[11px] px-2 py-0.5 rounded-full font-semibold badge-get">GET</span>
-        <span class="font-mono text-[13px] shrink-0" style="color:#a1a1aa">/sessions/{session_id}/history</span>
-        <span class="text-xs hidden sm:block truncate" style="color:#52525b">Fetch full conversation history for a session</span>
+        <span class="shrink-0 text-11 px-2 py-0\.5 rounded-full font-semibold badge-get">GET</span>
+        <span class="font-mono text-13 shrink-0" style="color:#a1a1aa">/sessions/{session_id}/history</span>
+        <span class="text-xs sm-block truncate" style="color:#52525b">Fetch full conversation history for a session</span>
       </div>
       <svg id="chv-history" class="chevron shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#52525b"><path d="M6 9l6 6 6-6"/></svg>
     </button>
     <div id="bdy-history" class="hidden px-6 pb-6 border-t bdim">
       <div class="flex flex-wrap items-end gap-3 pt-4 mb-4">
-        <div class="flex-1 min-w-[240px]">
-          <label class="text-[10px] text-zinc-600 uppercase tracking-wider block mb-1.5">session_id</label>
+        <div class="flex-1 min-w-240">
+          <label class="text-10 uppercase tracking-wider block mb-1\.5" style="color:#52525b">session_id</label>
           <input id="hist-sid" type="text" class="di" style="width:100%" placeholder="uuid — auto-filled from /chat response" />
         </div>
         <button class="run-btn" onclick="runHistory()"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l14 9-14 9V3z"/></svg>Fetch</button>
@@ -299,7 +374,6 @@
   let _abort = null;
   document.getElementById('agg-to').value = new Date().toISOString().slice(0,10);
 
-  // ── helpers ─────────────────────────────────────────────────────────────────
   function base() { return document.getElementById('base-input').value.trim().replace(/\/$/,''); }
   function U(p)   { const b = base(); return b ? b+p : p; }
 
@@ -309,22 +383,22 @@
   }
 
   function chip(ms) {
-    const c = ms<1000?'chip-fast':ms<4000?'chip-mid':'chip-slow';
-    return `<span class="text-[11px] px-2 py-1 rounded-full font-mono inline-flex items-center gap-1 ${c}">⚡ ${ms}ms</span>`;
+    const c = ms<300?'chip-fast':ms<1000?'chip-mid':'chip-slow';
+    return `<span style="font-size:11px;padding:4px 8px;border-radius:9999px;font-family:'JetBrains Mono',monospace;display:inline-flex;align-items:center;gap:4px" class="${c}">⚡ ${ms}ms</span>`;
   }
   function meta(ms, label) {
-    return `<div class="flex items-center gap-3 mb-4 flex-wrap">${chip(ms)}<span class="text-xs" style="color:#71717a">${label}</span></div>`;
+    return `<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">${chip(ms)}<span style="font-size:.75rem;color:#71717a">${label}</span></div>`;
   }
   function errBox(msg) {
     const net = msg.includes('fetch')||msg.includes('Failed')||msg.includes('Load');
     return `<div class="err-box">${net?'⚠️ Network error — backend may be sleeping (Cloud Run scales to zero). Try again.':`Error: ${msg}`}</div>`;
   }
-  function spin() { return `<div class="flex items-center gap-2 text-xs" style="color:#52525b"><div class="spinner"></div>Sending request…</div>`; }
+  function spin() { return `<div style="display:flex;align-items:center;gap:8px;font-size:.75rem;color:#52525b"><div class="spinner"></div>Sending request…</div>`; }
   function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
   function rawJson(d) {
     const enc = esc(JSON.stringify(d,null,2));
-    return `<div class="mt-3"><button onclick="var p=this.nextElementSibling;p.hidden=!p.hidden;this.style.color=p.hidden?'':'#a1a1aa'" class="flex items-center gap-1.5 text-[11px] select-none" style="color:#52525b"><span style="font-size:.55rem">▶</span>View raw JSON</button><pre class="rj mt-2" hidden>${enc}</pre></div>`;
+    return `<div class="mt-3"><button onclick="var p=this.nextElementSibling;p.hidden=!p.hidden;this.style.color=p.hidden?'':'#a1a1aa'" style="display:flex;align-items:center;gap:6px;font-size:11px;user-select:none;color:#52525b;background:none;border:none;cursor:pointer"><span style="font-size:.55rem">▶</span>View raw JSON</button><pre class="rj mt-2" hidden>${enc}</pre></div>`;
   }
 
   function tog(id) {
@@ -334,35 +408,28 @@
     h ? c.classList.remove('open') : c.classList.add('open');
   }
 
-  document.querySelectorAll('.chdr').forEach(btn => {
-    btn.addEventListener('mouseenter', () => btn.style.background='rgba(255,255,255,0.02)');
-    btn.addEventListener('mouseleave', () => btn.style.background='');
-  });
-
-  // ── tables ───────────────────────────────────────────────────────────────────
-  const TH = s => `<th class="text-left px-3 py-2 font-medium whitespace-nowrap" style="color:#71717a;border-bottom:1px solid rgba(255,255,255,0.06)">${s}</th>`;
-  const TD = (s,m,c) => `<td class="px-3 py-2 border-b${m?' font-mono':''}" style="border-color:rgba(255,255,255,0.04);color:${c||'#d4d4d8'};font-size:.72rem">${s}</td>`;
+  const TH = s => `<th style="text-align:left;padding:8px 12px;font-weight:500;white-space:nowrap;color:#71717a;border-bottom:1px solid rgba(255,255,255,0.06);font-size:.75rem">${s}</th>`;
+  const TD = (s,m,c) => `<td style="padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.04);color:${c||'#d4d4d8'};font-size:.72rem${m?';font-family:\'JetBrains Mono\',monospace':''}">${s}</td>`;
 
   function filingTable(items) {
-    if (!items.length) return '<p class="text-xs" style="color:#71717a">No results.</p>';
+    if (!items.length) return '<p style="font-size:.75rem;color:#71717a">No results.</p>';
     const rows = items.map((f,i) =>
-      `<tr>${TD(i+1,false,'#71717a')}${TD(esc(f.entity_name||'—'),true)}${TD(`<span class="px-2 py-0.5 rounded-full text-[11px] font-semibold" style="background:rgba(129,140,248,0.12);border:1px solid rgba(129,140,248,0.3);color:#a5b4fc">${esc(f.form_type||'—')}</span>`,false)}${TD(esc(f.period_of_report||'—'),true,'#a1a1aa')}${TD(esc(f.file_date||'—'),true,'#71717a')}${TD(esc(f.cik||'—'),true,'#52525b')}</tr>`
+      `<tr>${TD(i+1,false,'#71717a')}${TD(esc(f.entity_name||'—'),true)}${TD(`<span style="padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:600;background:rgba(129,140,248,0.12);border:1px solid rgba(129,140,248,0.3);color:#a5b4fc">${esc(f.form_type||'—')}</span>`,false)}${TD(esc(f.period_of_report||'—'),true,'#a1a1aa')}${TD(esc(f.file_date||'—'),true,'#71717a')}${TD(esc(f.cik||'—'),true,'#52525b')}</tr>`
     ).join('');
-    return `<div class="overflow-x-auto rounded-xl" style="border:1px solid rgba(255,255,255,0.06)"><table class="w-full text-xs border-collapse"><thead><tr>${[['#'],['Entity'],['Form'],['Period'],['Filed'],['CIK']].map(([h])=>TH(h)).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
+    return `<div style="overflow-x:auto;border-radius:.75rem;border:1px solid rgba(255,255,255,0.06)"><table style="width:100%;border-collapse:collapse"><thead><tr>${[['#'],['Entity'],['Form'],['Period'],['Filed'],['CIK']].map(([h])=>TH(h)).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
   }
 
   function companyTable(items) {
-    if (!items.length) return '<p class="text-xs" style="color:#71717a">No results.</p>';
+    if (!items.length) return '<p style="font-size:.75rem;color:#71717a">No results.</p>';
     const rows = items.map((c,i) =>
       `<tr>${TD(i+1,false,'#71717a')}${TD(esc(c.entity_name||'—'),true)}${TD(esc(c.cik||'—'),true,'#a1a1aa')}${TD(esc(c.biz_location||'—'),false,'#71717a')}${TD(esc(c.inc_states||'—'),true,'#52525b')}</tr>`
     ).join('');
-    return `<div class="overflow-x-auto rounded-xl" style="border:1px solid rgba(255,255,255,0.06)"><table class="w-full text-xs border-collapse"><thead><tr>${[['#'],['Company'],['CIK'],['Location'],['State']].map(([h])=>TH(h)).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
+    return `<div style="overflow-x:auto;border-radius:.75rem;border:1px solid rgba(255,255,255,0.06)"><table style="width:100%;border-collapse:collapse"><thead><tr>${[['#'],['Company'],['CIK'],['Location'],['State']].map(([h])=>TH(h)).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
   }
 
-  // ── GET /companies ────────────────────────────────────────────────────────────
   async function runCo() {
     const q = document.getElementById('co-q').value.trim();
-    if (!q) { document.getElementById('res-companies').innerHTML='<p class="text-xs" style="color:#52525b">Enter a company name above.</p>'; return; }
+    if (!q) { document.getElementById('res-companies').innerHTML='<p style="font-size:.75rem;color:#52525b">Enter a company name above.</p>'; return; }
     const btn = document.getElementById('co-btn'); btn.disabled=true;
     document.getElementById('res-companies').innerHTML=spin();
     const t0=performance.now();
@@ -376,7 +443,6 @@
     finally{btn.disabled=false;}
   }
 
-  // ── GET /filings ──────────────────────────────────────────────────────────────
   async function runFi() {
     const btn=document.getElementById('fi-btn'); btn.disabled=true;
     document.getElementById('res-filings').innerHTML=spin();
@@ -391,13 +457,12 @@
     finally{btn.disabled=false;}
   }
 
-  // ── GET /filings?entity= ──────────────────────────────────────────────────────
   async function runFs() {
     const entity=document.getElementById('fs-entity').value.trim();
     const q=document.getElementById('fs-q').value.trim();
     const from=document.getElementById('fs-from').value;
     const to=document.getElementById('fs-to').value;
-    if (!entity&&!q){document.getElementById('res-fsearch').innerHTML='<p class="text-xs" style="color:#52525b">Enter an entity name or search term above.</p>';return;}
+    if (!entity&&!q){document.getElementById('res-fsearch').innerHTML='<p style="font-size:.75rem;color:#52525b">Enter an entity name or search term above.</p>';return;}
     const btn=document.getElementById('fs-btn'); btn.disabled=true;
     document.getElementById('res-fsearch').innerHTML=spin();
     const t0=performance.now();
@@ -411,17 +476,16 @@
       const label=entity?`"${entity}"`:`"${q}"`;
       document.getElementById('res-fsearch').innerHTML=
         meta(ms,`${Number(j.total||0).toLocaleString()} match${j.total!==1?'es':''} for ${label} · showing ${items.length}`)+
-        (items.length?filingTable(items):'<p class="text-xs" style="color:#71717a">No results.</p>')+rawJson(j);
+        (items.length?filingTable(items):'<p style="font-size:.75rem;color:#71717a">No results.</p>')+rawJson(j);
     } catch(e){document.getElementById('res-fsearch').innerHTML=errBox(e.message);}
     finally{btn.disabled=false;}
   }
 
-  // ── GET /aggregates ───────────────────────────────────────────────────────────
   async function runAgg() {
     const from=document.getElementById('agg-from').value;
     const to=document.getElementById('agg-to').value;
     const q=document.getElementById('agg-q').value.trim();
-    if(!from||!to){document.getElementById('res-agg').innerHTML='<p class="text-xs" style="color:#52525b">Set from and to dates.</p>';return;}
+    if(!from||!to){document.getElementById('res-agg').innerHTML='<p style="font-size:.75rem;color:#52525b">Set from and to dates.</p>';return;}
     const btn=document.getElementById('agg-btn'); btn.disabled=true;
     document.getElementById('res-agg').innerHTML=spin();
     const t0=performance.now();
@@ -437,22 +501,21 @@
         return `<rect x="${x.toFixed(1)}" y="${(60-h).toFixed(1)}" width="${Math.max(bw-.5,.5).toFixed(1)}" height="${h.toFixed(1)}" fill="#818cf8" rx="1"/>`;
       }).join(''):'';
       const chart=n?`<svg viewBox="0 0 600 60" width="100%" height="60" preserveAspectRatio="none" style="display:block;border-radius:6px;margin-bottom:12px">${bars}</svg>`:'';
-      const stats=`<div class="grid grid-cols-3 gap-3 mb-4">${[
+      const stats=`<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:16px">${[
         {l:'Total Filings',v:Number(total).toLocaleString(),c:'#f4f4f5'},
         {l:'Months Returned',v:String(n),c:'#f4f4f5'},
         {l:'Date Range',v:`${from} → ${to}`,c:'#818cf8'},
-      ].map(s=>`<div class="stat-card"><p class="text-[10px] font-medium tracking-wider uppercase mb-1" style="color:#52525b">${s.l}</p><p class="text-base font-bold font-mono" style="color:${s.c}">${s.v}</p></div>`).join('')}</div>`;
+      ].map(s=>`<div class="stat-card"><p style="font-size:10px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px;color:#52525b">${s.l}</p><p style="font-size:1rem;font-weight:700;font-family:'JetBrains Mono',monospace;color:${s.c}">${s.v}</p></div>`).join('')}</div>`;
       const trows=data.slice(0,12).map(d=>
-        `<tr>${TD(esc(d.date),true,'#a1a1aa')}${TD(d.count.toLocaleString(),false)}<td class="px-3 py-2 border-b" style="border-color:rgba(255,255,255,0.04);width:120px"><div style="background:rgba(129,140,248,0.6);height:4px;border-radius:2px;width:${Math.round((d.count/mx)*100)}%"></div></td></tr>`
+        `<tr>${TD(esc(d.date),true,'#a1a1aa')}${TD(d.count.toLocaleString(),false)}<td style="padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.04);width:120px"><div style="background:rgba(129,140,248,0.6);height:4px;border-radius:2px;width:${Math.round((d.count/mx)*100)}%"></div></td></tr>`
       ).join('');
-      const tbl=n?`<div class="overflow-x-auto rounded-xl" style="border:1px solid rgba(255,255,255,0.06)"><table class="w-full text-xs border-collapse"><thead><tr>${TH('Month')}${TH('Filings')}<th class="px-3 py-2" style="border-bottom:1px solid rgba(255,255,255,0.06);width:120px"></th></tr></thead><tbody>${trows}</tbody></table></div>`:'<p class="text-xs" style="color:#71717a">No data for this range.</p>';
+      const tbl=n?`<div style="overflow-x:auto;border-radius:.75rem;border:1px solid rgba(255,255,255,0.06)"><table style="width:100%;border-collapse:collapse"><thead><tr>${TH('Month')}${TH('Filings')}<th style="padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.06);width:120px"></th></tr></thead><tbody>${trows}</tbody></table></div>`:'<p style="font-size:.75rem;color:#71717a">No data for this range.</p>';
       document.getElementById('res-agg').innerHTML=
         meta(ms,`${n} month${n!==1?'s':''} · ${from} → ${to}`)+(n?stats+chart+tbl:tbl)+rawJson(j);
     } catch(e){document.getElementById('res-agg').innerHTML=errBox(e.message);}
     finally{btn.disabled=false;}
   }
 
-  // ── GET /dataset-bounds ───────────────────────────────────────────────────────
   async function runBounds() {
     document.getElementById('res-bounds').innerHTML=spin();
     const t0=performance.now();
@@ -461,11 +524,10 @@
       const j=await r.json(); const ms=Math.round(performance.now()-t0);
       document.getElementById('res-bounds').innerHTML=
         meta(ms,'EDGAR full-text search date range')+
-        `<div class="grid grid-cols-2 gap-3">${[{l:'Earliest filing',v:j.from||'—',c:'#818cf8'},{l:'Latest filing',v:j.to||'—',c:'#34d399'}].map(s=>`<div class="stat-card"><p class="text-[10px] font-medium tracking-wider uppercase mb-1" style="color:#52525b">${s.l}</p><p class="text-base font-bold font-mono" style="color:${s.c}">${esc(s.v)}</p></div>`).join('')}</div>`+rawJson(j);
+        `<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">${[{l:'Earliest filing',v:j.from||'—',c:'#818cf8'},{l:'Latest filing',v:j.to||'—',c:'#34d399'}].map(s=>`<div class="stat-card"><p style="font-size:10px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px;color:#52525b">${s.l}</p><p style="font-size:1rem;font-weight:700;font-family:'JetBrains Mono',monospace;color:${s.c}">${esc(s.v)}</p></div>`).join('')}</div>`+rawJson(j);
     } catch(e){document.getElementById('res-bounds').innerHTML=errBox(e.message);}
   }
 
-  // ── GET /health ───────────────────────────────────────────────────────────────
   async function runHealth() {
     document.getElementById('res-health').innerHTML=spin();
     const t0=performance.now();
@@ -478,7 +540,6 @@
     } catch(e){document.getElementById('res-health').innerHTML=errBox(e.message);}
   }
 
-  // ── POST /chat ────────────────────────────────────────────────────────────────
   function setSample(el){document.getElementById('chat-msg').value=el.textContent.trim();}
 
   async function runChat() {
@@ -547,7 +608,6 @@
   function stopChat(){if(_abort)_abort.abort();}
   function useSid(id){document.getElementById('chat-sid').value=id;document.getElementById('hist-sid').value=id;}
 
-  // ── GET /sessions/{id}/history ────────────────────────────────────────────────
   async function runHistory(){
     const sid=document.getElementById('hist-sid').value.trim();
     if(!sid){document.getElementById('res-history').innerHTML='<div class="err-box">Enter a session_id. Run /chat first to get one.</div>';return;}
