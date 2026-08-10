@@ -1,11 +1,14 @@
 """REST-API-oriented EDGAR query helpers (distinct from agent tools in tools.py)."""
 
+import xml.etree.ElementTree as ET
 from collections import defaultdict
 from typing import Optional
+from urllib.parse import parse_qs, urlparse
 
 import httpx
 
 EDGAR_SEARCH_API = "https://efts.sec.gov/LATEST/search-index"
+EDGAR_BROWSE = "https://www.sec.gov/cgi-bin/browse-edgar"
 _HEADERS = {"User-Agent": "edgar-agent research@example.com"}
 
 
@@ -83,29 +86,44 @@ def search_filings(
 
 
 def search_companies_by_entity(q: str, limit: int = 20) -> dict:
-    """Lookup filers by registered entity name (EDGAR entity= field, not full-text)."""
-    params: dict = {
-        "entity": q,
-        "_source": "display_names,ciks,biz_locations,inc_states",
-        "forms": "10-K",
-        "size": min(limit * 4, 100),
+    """Lookup filers by registered entity name via EDGAR company search (registrant-name filter)."""
+    params = {
+        "company": q,
+        "action": "getcompany",
+        "type": "10-K",
+        "owner": "include",
+        "count": min(limit, 100),
+        "search_text": "",
+        "output": "atom",
     }
-    data = _edgar_search(params)
-    hits = data.get("hits", {}).get("hits", [])
+    try:
+        resp = httpx.get(EDGAR_BROWSE, params=params, headers=_HEADERS, timeout=15)
+        resp.raise_for_status()
+    except Exception as e:
+        return {"items": [], "total": 0}
+
+    ns = {"atom": "http://www.w3.org/2005/Atom"}
+    try:
+        root = ET.fromstring(resp.text)
+    except ET.ParseError:
+        return {"items": [], "total": 0}
 
     seen: set[str] = set()
     items = []
-    for hit in hits:
-        src = hit.get("_source", {})
-        name = _parse_display_name(src.get("display_names", []))
-        cik = (src.get("ciks") or [""])[0].lstrip("0") or "0"
-        if name and cik not in seen:
+    for entry in root.findall("atom:entry", ns):
+        name = (entry.findtext("atom:title", default="", namespaces=ns) or "").strip()
+        id_url = entry.findtext("atom:id", default="", namespaces=ns) or ""
+        qs = parse_qs(urlparse(id_url).query)
+        raw_cik = (qs.get("CIK") or qs.get("cik") or [""])[0]
+        cik = raw_cik.lstrip("0") or "0"
+
+        if name and cik and cik not in seen:
             seen.add(cik)
             items.append({
                 "entity_name": name,
                 "cik": cik,
-                "biz_location": (src.get("biz_locations") or [""])[0],
-                "inc_states": ", ".join(src.get("inc_states") or []),
+                "biz_location": "",
+                "inc_states": "",
             })
         if len(items) >= limit:
             break
