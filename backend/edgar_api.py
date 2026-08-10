@@ -41,12 +41,12 @@ def search_filings(
     from_date: Optional[str] = None,
     to_date: Optional[str] = None,
     offset: int = 0,
-    size: int = 20,
+    size: int = 10,
 ) -> dict:
+    # EDGAR EFTS ignores both `size` and `from` Elasticsearch params; it always
+    # returns ~100 hits regardless. Omit them and do pagination client-side.
     params: dict = {
         "_source": "file_date,period_ending,display_names,file_num,form,biz_locations,inc_states,ciks",
-        "from": offset,
-        "size": max(size, 1),
     }
     if q:
         params["q"] = q
@@ -63,15 +63,14 @@ def search_filings(
 
     data = _edgar_search(params)
     hits_block = data.get("hits", {})
-    total = hits_block.get("total", {}).get("value", 0)
 
-    items = []
+    all_items = []
     for hit in hits_block.get("hits", []):
         src = hit.get("_source", {})
         raw_id = hit.get("_id", "")
         acc_num = raw_id.split(":")[0] if ":" in raw_id else raw_id
         cik = (src.get("ciks") or [""])[0].lstrip("0") or "0"
-        items.append({
+        all_items.append({
             "id": acc_num,
             "entity_name": _parse_display_name(src.get("display_names", [])),
             "cik": cik,
@@ -83,7 +82,7 @@ def search_filings(
             "url": _filing_url(acc_num) if acc_num else "",
         })
 
-    return {"items": items, "total": total}
+    return {"items": all_items[offset : offset + size], "total": len(all_items)}
 
 
 def _extract_cik(href: str) -> str:

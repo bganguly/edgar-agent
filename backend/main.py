@@ -75,7 +75,7 @@ def filings_count(
     from_: Optional[str] = Query(None, alias="from"),
     to: Optional[str] = None,
 ):
-    result = search_filings(q, entity, form, from_, to, offset=0, size=1)
+    result = search_filings(q, entity, form, from_, to, offset=0, size=100)
     return {"total": result["total"]}
 
 
