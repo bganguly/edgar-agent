@@ -1,11 +1,10 @@
 """REST-API-oriented EDGAR query helpers (distinct from agent tools in tools.py)."""
 
-import xml.etree.ElementTree as ET
 from collections import defaultdict
 from typing import Optional
-from urllib.parse import parse_qs, urlparse
 
 import httpx
+from bs4 import BeautifulSoup, NavigableString
 
 EDGAR_SEARCH_API = "https://efts.sec.gov/LATEST/search-index"
 EDGAR_BROWSE = "https://www.sec.gov/cgi-bin/browse-edgar"
@@ -86,7 +85,7 @@ def search_filings(
 
 
 def search_companies_by_entity(q: str, limit: int = 20) -> dict:
-    """Lookup filers by registered entity name via EDGAR company search (registrant-name filter)."""
+    """Lookup filers by registered entity name via EDGAR company search HTML (registrant-name filter)."""
     params = {
         "company": q,
         "action": "getcompany",
@@ -94,28 +93,36 @@ def search_companies_by_entity(q: str, limit: int = 20) -> dict:
         "owner": "include",
         "count": min(limit, 100),
         "search_text": "",
-        "output": "atom",
     }
     try:
         resp = httpx.get(EDGAR_BROWSE, params=params, headers=_HEADERS, timeout=15)
         resp.raise_for_status()
-    except Exception as e:
+    except Exception:
         return {"items": [], "total": 0}
 
-    ns = {"atom": "http://www.w3.org/2005/Atom"}
-    try:
-        root = ET.fromstring(resp.text)
-    except ET.ParseError:
+    soup = BeautifulSoup(resp.text, "lxml")
+    table = soup.find("table", class_="tableFile2")
+    if not table:
         return {"items": [], "total": 0}
 
-    seen: set[str] = set()
     items = []
-    for entry in root.findall("atom:entry", ns):
-        name = (entry.findtext("atom:title", default="", namespaces=ns) or "").strip()
-        id_url = entry.findtext("atom:id", default="", namespaces=ns) or ""
-        qs = parse_qs(urlparse(id_url).query)
-        raw_cik = (qs.get("CIK") or qs.get("cik") or [""])[0]
+    seen: set[str] = set()
+    for row in table.find_all("tr")[1:]:
+        cells = row.find_all("td")
+        if len(cells) < 3:
+            continue
+
+        cik_link = cells[0].find("a")
+        raw_cik = cik_link.get_text(strip=True) if cik_link else ""
         cik = raw_cik.lstrip("0") or "0"
+
+        name = next(
+            (c.strip() for c in cells[1].children if isinstance(c, NavigableString) and c.strip()),
+            "",
+        )
+
+        state_link = cells[2].find("a")
+        state = state_link.get_text(strip=True) if state_link else ""
 
         if name and cik and cik not in seen:
             seen.add(cik)
@@ -123,7 +130,7 @@ def search_companies_by_entity(q: str, limit: int = 20) -> dict:
                 "entity_name": name,
                 "cik": cik,
                 "biz_location": "",
-                "inc_states": "",
+                "inc_states": state,
             })
         if len(items) >= limit:
             break
