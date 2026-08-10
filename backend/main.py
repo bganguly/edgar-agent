@@ -1,13 +1,14 @@
 import json
 import uuid
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
 from agent import run_agent
+from edgar_api import get_filing_aggregates, search_companies, search_filings
 from sessions import append_message, get_history
 
 app = FastAPI(title="EDGAR Agent")
@@ -25,9 +26,73 @@ class ChatRequest(BaseModel):
     message: str
 
 
+@app.get("/")
+async def root():
+    return {
+        "service": "EDGAR Agent API",
+        "endpoints": {
+            "GET /health": "health check",
+            "POST /chat": "stream agent response (SSE)",
+            "GET /sessions/{session_id}/history": "conversation history",
+            "GET /companies": "search SEC EDGAR filers by name",
+            "GET /filings": "search/list 10-K and other filings",
+            "GET /filings/count": "count matching filings",
+            "GET /aggregates": "filing counts grouped by month",
+            "GET /dataset-bounds": "available date range in EDGAR",
+        },
+    }
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/companies")
+def companies(q: str = "", limit: int = 20):
+    return search_companies(q or "a", limit)
+
+
+@app.get("/filings/count")
+def filings_count(
+    q: Optional[str] = None,
+    entity: Optional[str] = None,
+    form: Optional[str] = None,
+    from_: Optional[str] = Query(None, alias="from"),
+    to: Optional[str] = None,
+):
+    result = search_filings(q, entity, form, from_, to, offset=0, size=1)
+    return {"total": result["total"]}
+
+
+@app.get("/filings")
+def filings(
+    q: Optional[str] = None,
+    entity: Optional[str] = None,
+    form: Optional[str] = None,
+    from_: Optional[str] = Query(None, alias="from"),
+    to: Optional[str] = None,
+    page: int = 1,
+    pageSize: int = 20,
+):
+    offset = (page - 1) * pageSize
+    result = search_filings(q, entity, form, from_, to, offset, pageSize)
+    return {**result, "page": page, "pageSize": pageSize}
+
+
+@app.get("/aggregates")
+def aggregates(
+    from_: Optional[str] = Query(None, alias="from"),
+    to: Optional[str] = None,
+    form: Optional[str] = None,
+    q: Optional[str] = None,
+):
+    return get_filing_aggregates(from_, to, form, q)
+
+
+@app.get("/dataset-bounds")
+def dataset_bounds():
+    return {"from": "1993-01-01", "to": "2025-12-31"}
 
 
 @app.post("/chat")
