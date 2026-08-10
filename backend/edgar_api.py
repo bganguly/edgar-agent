@@ -101,6 +101,29 @@ def search_companies_by_entity(q: str, limit: int = 20) -> dict:
         return {"items": [], "total": 0}
 
     soup = BeautifulSoup(resp.text, "lxml")
+
+    # When exactly one company matches, EDGAR skips the list and shows that
+    # company's filings page directly. Detect this by looking for companyName span.
+    company_span = soup.find("span", class_="companyName")
+    if company_span:
+        name = next(
+            (c.strip() for c in company_span.children if isinstance(c, NavigableString) and c.strip()),
+            "",
+        )
+        cik_link = company_span.find("a")
+        raw_cik = ""
+        if cik_link:
+            href = cik_link.get("href", "")
+            for part in href.split("&"):
+                if part.upper().startswith("CIK="):
+                    raw_cik = part.split("=", 1)[1]
+                    break
+        cik = raw_cik.lstrip("0") or "0"
+        if name and cik:
+            return {"items": [{"entity_name": name, "cik": cik, "biz_location": "", "inc_states": ""}], "total": 1}
+        return {"items": [], "total": 0}
+
+    # Multiple-company list: tableFile2 with CIK / Company / State columns.
     table = soup.find("table", class_="tableFile2")
     if not table:
         return {"items": [], "total": 0}
