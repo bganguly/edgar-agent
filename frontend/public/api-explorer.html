@@ -78,8 +78,8 @@
     @media(max-width:639px){.sm-block{display:none}}
 
     /* ── Component styles ── */
-    .glass{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08)}
-    .bdim{border-color:rgba(255,255,255,0.06)}
+    .glass{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.11)}
+    .bdim{border-color:rgba(255,255,255,0.09)}
     .badge-get{background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.3);color:#34d399}
     .badge-post{background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);color:#a5b4fc}
     .run-btn{display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:8px;font-size:.75rem;font-weight:600;background:rgba(139,92,246,0.15);border:1px solid rgba(139,92,246,0.4);color:#c4b5fd;cursor:pointer;transition:background .15s;white-space:nowrap}
@@ -135,15 +135,12 @@
   <p class="text-sm max-w-xl mb-5" style="color:#71717a">
     Run real requests against the FastAPI backend — company search, filing lookup, monthly aggregates, and live agent streaming over SEC EDGAR.
   </p>
-  <div class="flex flex-wrap items-center gap-3">
-    <div class="flex items-center gap-1\.5 px-3 py-1\.5 rounded-lg text-xs font-mono"
-         style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#52525b">
-      <span class="w-1\.5 h-1\.5 rounded-full inline-block" style="background:#818cf8"></span>
-      <span id="base-display">same origin</span>
-    </div>
-    <input id="base-input" type="text" class="di"
-      placeholder="https://edgar-backend-….run.app  (override for remote backend)"
-      style="width:340px;font-size:.72rem" oninput="onBaseChange()" />
+  <div class="flex items-center gap-1\.5 px-3 py-1\.5 rounded-lg"
+       style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);max-width:520px;min-width:0">
+    <span class="w-1\.5 h-1\.5 rounded-full shrink-0" style="background:#818cf8"></span>
+    <input id="base-input" type="text"
+      placeholder="same origin"
+      style="background:none;border:none;outline:none;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:#a1a1aa;width:100%;min-width:0" />
   </div>
 </section>
 
@@ -155,7 +152,7 @@
       style="transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,0.02)'" onmouseleave="this.style.background=''">
       <div class="flex items-center gap-3 min-w-0">
         <span class="shrink-0 text-11 px-2 py-0\.5 rounded-full font-semibold badge-get">GET</span>
-        <span class="font-mono text-13 shrink-0" style="color:#a1a1aa">/companies</span>
+        <span class="font-mono text-sm shrink-0" style="color:#a1a1aa">/companies</span>
         <span class="text-xs sm-block truncate" style="color:#52525b">Search SEC EDGAR filers by entity name — deduplicated</span>
       </div>
       <svg id="chv-companies" class="chevron shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#52525b"><path d="M6 9l6 6 6-6"/></svg>
@@ -179,7 +176,7 @@
       style="transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,0.02)'" onmouseleave="this.style.background=''">
       <div class="flex items-center gap-3 min-w-0">
         <span class="shrink-0 text-11 px-2 py-0\.5 rounded-full font-semibold badge-get">GET</span>
-        <span class="font-mono text-13 shrink-0" style="color:#a1a1aa">/filings</span>
+        <span class="font-mono text-sm shrink-0" style="color:#a1a1aa">/filings</span>
         <span class="text-xs sm-block truncate" style="color:#52525b">Latest 10-K filings — paginated, most recent first</span>
       </div>
       <svg id="chv-filings" class="chevron shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#52525b"><path d="M6 9l6 6 6-6"/></svg>
@@ -203,7 +200,7 @@
       style="transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,0.02)'" onmouseleave="this.style.background=''">
       <div class="flex items-center gap-3 min-w-0">
         <span class="shrink-0 text-11 px-2 py-0\.5 rounded-full font-semibold badge-get">GET</span>
-        <span class="font-mono text-13 shrink-0" style="color:#a1a1aa">/filings?entity=…</span>
+        <span class="font-mono text-sm shrink-0" style="color:#a1a1aa">/filings?entity=…</span>
         <span class="text-xs sm-block truncate" style="color:#52525b">Search filings by entity, text query, form type, date range</span>
       </div>
       <svg id="chv-fsearch" class="chevron shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#52525b"><path d="M6 9l6 6 6-6"/></svg>
@@ -234,7 +231,7 @@
       style="transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,0.02)'" onmouseleave="this.style.background=''">
       <div class="flex items-center gap-3 min-w-0">
         <span class="shrink-0 text-11 px-2 py-0\.5 rounded-full font-semibold badge-get">GET</span>
-        <span class="font-mono text-13 shrink-0" style="color:#a1a1aa">/aggregates</span>
+        <span class="font-mono text-sm shrink-0" style="color:#a1a1aa">/aggregates</span>
         <span class="text-xs sm-block truncate" style="color:#52525b">Monthly filing counts — any date range, optional text filter</span>
       </div>
       <svg id="chv-agg" class="chevron shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#52525b"><path d="M6 9l6 6 6-6"/></svg>
@@ -264,7 +261,7 @@
       style="transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,0.02)'" onmouseleave="this.style.background=''">
       <div class="flex items-center gap-3 min-w-0">
         <span class="shrink-0 text-11 px-2 py-0\.5 rounded-full font-semibold badge-get">GET</span>
-        <span class="font-mono text-13 shrink-0" style="color:#a1a1aa">/dataset-bounds</span>
+        <span class="font-mono text-sm shrink-0" style="color:#a1a1aa">/dataset-bounds</span>
         <span class="text-xs sm-block truncate" style="color:#52525b">Available date range in EDGAR full-text search index</span>
       </div>
       <svg id="chv-bounds" class="chevron shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#52525b"><path d="M6 9l6 6 6-6"/></svg>
@@ -284,7 +281,7 @@
       style="transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,0.02)'" onmouseleave="this.style.background=''">
       <div class="flex items-center gap-3 min-w-0">
         <span class="shrink-0 text-11 px-2 py-0\.5 rounded-full font-semibold badge-get">GET</span>
-        <span class="font-mono text-13 shrink-0" style="color:#a1a1aa">/health</span>
+        <span class="font-mono text-sm shrink-0" style="color:#a1a1aa">/health</span>
         <span class="text-xs sm-block truncate" style="color:#52525b">Liveness probe — confirms the FastAPI container is up</span>
       </div>
       <svg id="chv-health" class="chevron shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#52525b"><path d="M6 9l6 6 6-6"/></svg>
@@ -304,7 +301,7 @@
       style="transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,0.02)'" onmouseleave="this.style.background=''">
       <div class="flex items-center gap-3 min-w-0">
         <span class="shrink-0 text-11 px-2 py-0\.5 rounded-full font-semibold badge-post">POST</span>
-        <span class="font-mono text-13 shrink-0" style="color:#a1a1aa">/chat</span>
+        <span class="font-mono text-sm shrink-0" style="color:#a1a1aa">/chat</span>
         <span class="text-xs sm-block truncate" style="color:#52525b">Run the agent loop — streams tool calls and answer tokens via SSE</span>
       </div>
       <svg id="chv-chat" class="chevron shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#52525b"><path d="M6 9l6 6 6-6"/></svg>
@@ -351,7 +348,7 @@
       style="transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,0.02)'" onmouseleave="this.style.background=''">
       <div class="flex items-center gap-3 min-w-0">
         <span class="shrink-0 text-11 px-2 py-0\.5 rounded-full font-semibold badge-get">GET</span>
-        <span class="font-mono text-13 shrink-0" style="color:#a1a1aa">/sessions/{session_id}/history</span>
+        <span class="font-mono text-sm shrink-0" style="color:#a1a1aa">/sessions/{session_id}/history</span>
         <span class="text-xs sm-block truncate" style="color:#52525b">Fetch full conversation history for a session</span>
       </div>
       <svg id="chv-history" class="chevron shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#52525b"><path d="M6 9l6 6 6-6"/></svg>
@@ -376,11 +373,6 @@
 
   function base() { return document.getElementById('base-input').value.trim().replace(/\/$/,''); }
   function U(p)   { const b = base(); return b ? b+p : p; }
-
-  function onBaseChange() {
-    const v = base();
-    document.getElementById('base-display').textContent = v || 'same origin';
-  }
 
   function chip(ms) {
     const c = ms<300?'chip-fast':ms<1000?'chip-mid':'chip-slow';
