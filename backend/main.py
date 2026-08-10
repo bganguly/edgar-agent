@@ -50,13 +50,21 @@ async def health():
 
 
 @app.get("/companies")
-def companies(q: str = "", limit: int = 20):
-    return search_companies_by_entity(q or "a", limit)
+def companies(q: str = "", page: int = 1, pageSize: int = 10):
+    pageSize = min(pageSize, 10)
+    offset = (page - 1) * pageSize
+    result = search_companies_by_entity(q or "a", limit=100)
+    items = result["items"]
+    return {"items": items[offset : offset + pageSize], "total": len(items), "page": page, "pageSize": pageSize}
 
 
 @app.get("/companies/search")
-def companies_search(q: str = "", limit: int = 20):
-    return search_companies(q or "a", limit)
+def companies_search(q: str = "", page: int = 1, pageSize: int = 10):
+    pageSize = min(pageSize, 10)
+    offset = (page - 1) * pageSize
+    result = search_companies(q or "a", limit=100)
+    items = result["items"]
+    return {"items": items[offset : offset + pageSize], "total": len(items), "page": page, "pageSize": pageSize}
 
 
 @app.get("/filings/count")
@@ -79,8 +87,9 @@ def filings(
     from_: Optional[str] = Query(None, alias="from"),
     to: Optional[str] = None,
     page: int = 1,
-    pageSize: int = 20,
+    pageSize: int = 10,
 ):
+    pageSize = min(pageSize, 10)
     offset = (page - 1) * pageSize
     result = search_filings(q, entity, form, from_, to, offset, pageSize)
     return {**result, "page": page, "pageSize": pageSize}

@@ -163,7 +163,7 @@
         <div class="flex items-center gap-3 flex-wrap">
           <input id="co-q" type="text" class="di" placeholder="e.g. apple, nvidia, tesla…" style="width:220px"
             onkeydown="if(event.key==='Enter')runCo()" />
-          <span class="font-mono text-11" style="color:#52525b">limit=<span style="color:#a78bfa">20</span></span>
+          <span class="font-mono text-11" style="color:#52525b">pageSize=<span style="color:#a78bfa">10</span></span>
         </div>
         <button class="run-btn" id="co-btn" onclick="runCo()"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l14 9-14 9V3z"/></svg>Run</button>
       </div>
@@ -187,7 +187,7 @@
         <div class="flex items-center gap-3 flex-wrap">
           <input id="cos-q" type="text" class="di" placeholder="e.g. nvidia, blockchain, lithium…" style="width:220px"
             onkeydown="if(event.key==='Enter')runCoSearch()" />
-          <span class="font-mono text-11" style="color:#52525b">limit=<span style="color:#a78bfa">20</span></span>
+          <span class="font-mono text-11" style="color:#52525b">pageSize=<span style="color:#a78bfa">10</span></span>
         </div>
         <button class="run-btn" id="cos-btn" onclick="runCoSearch()"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l14 9-14 9V3z"/></svg>Run</button>
       </div>
@@ -394,6 +394,8 @@
 
 <script>
   let _abort = null;
+  let _coPage = 1, _coQ = '';
+  let _cosPage = 1, _cosQ = '';
   let _fiPage = 1;
   let _fsPage = 1, _fsEntity = '', _fsQ = '', _fsFrom = '', _fsTo = '';
   document.getElementById('agg-to').value = new Date().toISOString().slice(0,10);
@@ -457,34 +459,50 @@
     return `<div style="overflow-x:auto;border-radius:.75rem;border:1px solid rgba(255,255,255,0.06)"><table style="width:100%;border-collapse:collapse"><thead><tr>${[['#'],['Company'],['CIK'],['Location'],['State']].map(([h])=>TH(h)).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
   }
 
-  async function runCo() {
-    const q = document.getElementById('co-q').value.trim();
-    if (!q) { document.getElementById('res-companies').innerHTML='<p style="font-size:.75rem;color:#52525b">Enter a company name above.</p>'; return; }
+  async function runCo(page) {
+    if (page === undefined) {
+      _coQ = document.getElementById('co-q').value.trim();
+      if (!_coQ) { document.getElementById('res-companies').innerHTML='<p style="font-size:.75rem;color:#52525b">Enter a company name above.</p>'; return; }
+      _coPage = 1;
+    } else {
+      _coPage = page;
+    }
     const btn = document.getElementById('co-btn'); btn.disabled=true;
     document.getElementById('res-companies').innerHTML=spin();
     const t0=performance.now();
     try {
-      const r=await fetch(U(`/companies?q=${encodeURIComponent(q)}&limit=20`));
+      const r=await fetch(U(`/companies?q=${encodeURIComponent(_coQ)}&page=${_coPage}&pageSize=10`));
       const j=await r.json(); const ms=Math.round(performance.now()-t0);
-      const items=j.items||[];
+      const items=j.items||[]; const total=Number(j.total||0); const pg=_coPage;
       document.getElementById('res-companies').innerHTML=
-        meta(ms,`${items.length} compan${items.length!==1?'ies':'y'} returned`)+companyTable(items)+rawJson(j);
+        meta(ms,`${total.toLocaleString()} compan${total!==1?'ies':'y'} found · page ${pg}`)+
+        companyTable(items)+
+        paginator(pg,total,10,`runCo(${pg-1})`,`runCo(${pg+1})`)+
+        rawJson(j);
     } catch(e){document.getElementById('res-companies').innerHTML=errBox(e.message);}
     finally{btn.disabled=false;}
   }
 
-  async function runCoSearch() {
-    const q = document.getElementById('cos-q').value.trim();
-    if (!q) { document.getElementById('res-cosearch').innerHTML='<p style="font-size:.75rem;color:#52525b">Enter a search term above.</p>'; return; }
+  async function runCoSearch(page) {
+    if (page === undefined) {
+      _cosQ = document.getElementById('cos-q').value.trim();
+      if (!_cosQ) { document.getElementById('res-cosearch').innerHTML='<p style="font-size:.75rem;color:#52525b">Enter a search term above.</p>'; return; }
+      _cosPage = 1;
+    } else {
+      _cosPage = page;
+    }
     const btn = document.getElementById('cos-btn'); btn.disabled=true;
     document.getElementById('res-cosearch').innerHTML=spin();
     const t0=performance.now();
     try {
-      const r=await fetch(U(`/companies/search?q=${encodeURIComponent(q)}&limit=20`));
+      const r=await fetch(U(`/companies/search?q=${encodeURIComponent(_cosQ)}&page=${_cosPage}&pageSize=10`));
       const j=await r.json(); const ms=Math.round(performance.now()-t0);
-      const items=j.items||[];
+      const items=j.items||[]; const total=Number(j.total||0); const pg=_cosPage;
       document.getElementById('res-cosearch').innerHTML=
-        meta(ms,`${items.length} filer${items.length!==1?'s':''} whose 10-K mentions "${q}"`)+companyTable(items)+rawJson(j);
+        meta(ms,`${total.toLocaleString()} filer${total!==1?'s':''} whose 10-K mentions "${_cosQ}" · page ${pg}`)+
+        companyTable(items)+
+        paginator(pg,total,10,`runCoSearch(${pg-1})`,`runCoSearch(${pg+1})`)+
+        rawJson(j);
     } catch(e){document.getElementById('res-cosearch').innerHTML=errBox(e.message);}
     finally{btn.disabled=false;}
   }
