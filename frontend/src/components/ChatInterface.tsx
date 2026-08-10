@@ -12,8 +12,8 @@ interface Message {
 }
 
 const TOOL_LABELS: Record<string, string> = {
-  search_edgar: "🔍 Searching EDGAR...",
-  fetch_filing: "📄 Fetching filing...",
+  search_edgar: "Searching EDGAR",
+  fetch_filing: "Fetching filing",
 };
 
 export default function ChatInterface() {
@@ -22,11 +22,24 @@ export default function ChatInterface() {
   const [loading, setLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [activeTools, setActiveTools] = useState<ToolCall[]>([]);
+  const [elapsed, setElapsed] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, activeTools]);
+
+  useEffect(() => {
+    if (loading) {
+      setElapsed(0);
+      timerRef.current = setInterval(() => setElapsed((e) => e + 1), 1000);
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [loading]);
 
   async function sendMessage(e: FormEvent) {
     e.preventDefault();
@@ -147,14 +160,20 @@ export default function ChatInterface() {
                       display: "inline-block",
                       width: "fit-content",
                     }}>
-                      {TOOL_LABELS[tc.tool] ?? tc.tool}
+                      ✓ {TOOL_LABELS[tc.tool] ?? tc.tool}
                       {tc.tool === "search_edgar" && tc.input.company_name && ` "${tc.input.company_name}"`}
                     </span>
                   ))}
                 </div>
               )}
               {msg.content || (msg.role === "assistant" && loading && i === messages.length - 1 ? (
-                <span style={{ color: "#718096" }}>▌</span>
+                <span style={{ color: "#718096", fontSize: "13px", display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                  <span className="spin-indicator" />
+                  {activeTools.length > 0
+                    ? `${TOOL_LABELS[activeTools[activeTools.length - 1].tool] ?? activeTools[activeTools.length - 1].tool}…`
+                    : "Thinking…"}
+                  <span style={{ color: "#4a5568", fontFamily: "monospace", fontSize: "12px" }}>{elapsed}s</span>
+                </span>
               ) : null)}
             </div>
           </div>
@@ -169,8 +188,11 @@ export default function ChatInterface() {
                 background: "#1a365d",
                 padding: "4px 10px",
                 borderRadius: "12px",
-                animation: "pulse 1.5s infinite",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
               }}>
+                <span className="spin-indicator" style={{ width: "10px", height: "10px", borderWidth: "1.5px" }} />
                 {TOOL_LABELS[tc.tool] ?? tc.tool}
                 {tc.tool === "search_edgar" && tc.input.company_name && ` "${tc.input.company_name}"`}
               </span>
@@ -218,14 +240,23 @@ export default function ChatInterface() {
             fontWeight: 600,
           }}
         >
-          {loading ? "..." : "Send"}
+          {loading ? `${elapsed}s…` : "Send"}
         </button>
       </form>
 
       <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
+        .spin-indicator {
+          display: inline-block;
+          width: 12px;
+          height: 12px;
+          border: 2px solid rgba(144,205,244,0.3);
+          border-top-color: #90cdf4;
+          border-radius: 50%;
+          animation: spin 0.7s linear infinite;
+          flex-shrink: 0;
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
         }
       `}</style>
     </div>

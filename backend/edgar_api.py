@@ -9,10 +9,10 @@ EDGAR_SEARCH_API = "https://efts.sec.gov/LATEST/search-index"
 _HEADERS = {"User-Agent": "edgar-agent research@example.com"}
 
 
-def _filing_url(raw_accession: str) -> str:
-    acc = raw_accession.replace(":", "-")
-    cik = acc.split("-")[0]
-    return f"https://www.sec.gov/Archives/edgar/data/{cik}/{acc.replace('-', '')}/{acc}-index.htm"
+def _filing_url(acc_num: str) -> str:
+    cik = acc_num.split("-")[0]
+    path = acc_num.replace("-", "")
+    return f"https://www.sec.gov/Archives/edgar/data/{cik}/{path}/{acc_num}-index.htm"
 
 
 def _edgar_search(params: dict) -> dict:
@@ -22,6 +22,12 @@ def _edgar_search(params: dict) -> dict:
         return resp.json()
     except Exception as e:
         return {"error": str(e), "hits": {"hits": [], "total": {"value": 0}}}
+
+
+def _parse_display_name(display_names: list) -> str:
+    """Extract clean company name from EDGAR display_names list."""
+    raw = (display_names or [""])[0]
+    return raw.split("  (")[0].strip()
 
 
 def search_filings(
@@ -34,14 +40,14 @@ def search_filings(
     size: int = 20,
 ) -> dict:
     params: dict = {
-        "_source": "file_date,period_of_report,entity_name,file_num,form_type,biz_location,inc_states",
+        "_source": "file_date,period_ending,display_names,file_num,form,biz_locations,inc_states,ciks",
         "from": offset,
         "size": max(size, 1),
     }
     if q:
         params["q"] = q
     if entity:
-        params["entity"] = entity
+        params["q"] = f'"{entity}"'
     if form:
         params["forms"] = form
     if from_date or to_date:
@@ -58,19 +64,19 @@ def search_filings(
     items = []
     for hit in hits_block.get("hits", []):
         src = hit.get("_source", {})
-        raw_acc = hit.get("_id", "")
-        acc = raw_acc.replace(":", "-")
-        cik = acc.split("-")[0] if acc else ""
+        raw_id = hit.get("_id", "")
+        acc_num = raw_id.split(":")[0] if ":" in raw_id else raw_id
+        cik = (src.get("ciks") or [""])[0].lstrip("0") or "0"
         items.append({
-            "id": acc,
-            "entity_name": src.get("entity_name", ""),
+            "id": acc_num,
+            "entity_name": _parse_display_name(src.get("display_names", [])),
             "cik": cik,
-            "form_type": src.get("form_type", ""),
-            "period_of_report": src.get("period_of_report", ""),
+            "form_type": src.get("form", ""),
+            "period_of_report": src.get("period_ending", ""),
             "file_date": src.get("file_date", ""),
-            "biz_location": src.get("biz_location", ""),
-            "inc_states": src.get("inc_states", ""),
-            "url": _filing_url(raw_acc) if raw_acc else "",
+            "biz_location": (src.get("biz_locations") or [""])[0],
+            "inc_states": ", ".join(src.get("inc_states") or []),
+            "url": _filing_url(acc_num) if acc_num else "",
         })
 
     return {"items": items, "total": total}
@@ -78,8 +84,8 @@ def search_filings(
 
 def search_companies(q: str, limit: int = 20) -> dict:
     params: dict = {
-        "entity": q,
-        "_source": "entity_name,file_num,biz_location,inc_states",
+        "q": f'"{q}"',
+        "_source": "display_names,ciks,biz_locations,inc_states",
         "forms": "10-K",
         "size": min(limit * 4, 100),
     }
@@ -90,17 +96,15 @@ def search_companies(q: str, limit: int = 20) -> dict:
     items = []
     for hit in hits:
         src = hit.get("_source", {})
-        raw_acc = hit.get("_id", "")
-        acc = raw_acc.replace(":", "-")
-        cik = acc.split("-")[0] if acc else ""
-        name = src.get("entity_name", "")
-        if name and name not in seen:
-            seen.add(name)
+        name = _parse_display_name(src.get("display_names", []))
+        cik = (src.get("ciks") or [""])[0].lstrip("0") or "0"
+        if name and cik not in seen:
+            seen.add(cik)
             items.append({
                 "entity_name": name,
                 "cik": cik,
-                "biz_location": src.get("biz_location", ""),
-                "inc_states": src.get("inc_states", ""),
+                "biz_location": (src.get("biz_locations") or [""])[0],
+                "inc_states": ", ".join(src.get("inc_states") or []),
             })
         if len(items) >= limit:
             break
@@ -115,7 +119,7 @@ def get_filing_aggregates(
     q: Optional[str] = None,
 ) -> dict:
     params: dict = {
-        "_source": "file_date,form_type",
+        "_source": "file_date,form",
         "size": 500,
     }
     if q:
