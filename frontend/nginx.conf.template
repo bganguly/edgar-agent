@@ -3,6 +3,10 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
+    location = /api-explorer {
+        rewrite ^ /api-explorer.html last;
+    }
+
     location ~ ^/(chat|sessions|health|companies|filings|aggregates|dataset-bounds) {
         proxy_pass $BACKEND_URL;
         proxy_read_timeout 300s;
