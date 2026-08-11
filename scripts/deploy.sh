@@ -259,10 +259,6 @@ printf '  API:       %s\n' "$BACKEND_URL"
 printf '  Cost:      ~$0/mo  (Cloud Run free tier)\n'
 printf '  Tear down: ./scripts/infra-down.sh\n'
 
-PORTFOLIO_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/portfolio/scripts/set-live-url.sh"
-if [[ -x "$PORTFOLIO_SCRIPT" ]]; then
-  bash "$PORTFOLIO_SCRIPT" --tier lite edgarAgent "$FRONTEND_URL" "$BACKEND_URL"
-fi
 
 # ── post-deploy sanity check ───────────────────────────────────────────────────
 printf '\nRun post-deploy sanity check? [y/N]: '
