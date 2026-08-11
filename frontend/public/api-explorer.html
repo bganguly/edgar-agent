@@ -436,6 +436,12 @@
     const net = msg.includes('fetch')||msg.includes('Failed')||msg.includes('Load');
     return `<div class="err-box">${net?'⚠️ Network error — backend may be sleeping (Cloud Run scales to zero). Try again.':`Error: ${msg}`}</div>`;
   }
+  function errWithRetry(msg, retryExpr) {
+    const net = msg.includes('fetch')||msg.includes('Failed')||msg.includes('Load')||msg.includes('NetworkError');
+    const text = net ? '⚠️ Network error — backend may be sleeping (Cloud Run scales to zero).' : `Error: ${esc(String(msg))}`;
+    const btn = `<button class="run-btn" style="padding:3px 10px;font-size:.7rem;flex-shrink:0" onclick="${retryExpr}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>Retry</button>`;
+    return `<div class="err-box" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">${text}${btn}</div>`;
+  }
   function spin() { return `<div style="display:flex;align-items:center;gap:8px;font-size:.75rem;color:#52525b"><div class="spinner"></div>Sending request…</div>`; }
   function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
@@ -507,14 +513,14 @@
     try {
       const r=await fetch(U(`/companies?q=${encodeURIComponent(_coQ)}&page=${_coPage}&pageSize=10`));
       const ms=Math.round(performance.now()-t0);
-      if(!r.ok){const err=await r.json().catch(()=>({detail:r.statusText}));document.getElementById('res-companies-body').innerHTML=errBox(err.detail||r.statusText);return;}
+      if(!r.ok){const err=await r.json().catch(()=>({detail:r.statusText}));document.getElementById('res-companies-body').innerHTML=errWithRetry(err.detail||r.statusText,'runCo(_coPage)');return;}
       const j=await r.json(); const items=j.items||[]; const total=Number(j.total||0); const pg=_coPage;
       setPagedResult('companies',
         meta(ms,`${total.toLocaleString()} compan${total!==1?'ies':'y'} found`),
         companyTable(items),
         paginator(pg,total,10,`runCo(${pg-1})`,`runCo(${pg+1})`),
         rawJson(j));
-    } catch(e){document.getElementById('res-companies-body').innerHTML=errBox(e.message);}
+    } catch(e){document.getElementById('res-companies-body').innerHTML=errWithRetry(e.message,'runCo(_coPage)');}
     finally{btn.disabled=false;}
   }
 
@@ -533,14 +539,14 @@
     try {
       const r=await fetch(U(`/companies/search?q=${encodeURIComponent(_cosQ)}&page=${_cosPage}&pageSize=10`));
       const ms=Math.round(performance.now()-t0);
-      if(!r.ok){const err=await r.json().catch(()=>({detail:r.statusText}));document.getElementById('res-cosearch-body').innerHTML=errBox(err.detail||r.statusText);return;}
+      if(!r.ok){const err=await r.json().catch(()=>({detail:r.statusText}));document.getElementById('res-cosearch-body').innerHTML=errWithRetry(err.detail||r.statusText,'runCoSearch(_cosPage)');return;}
       const j=await r.json(); const items=j.items||[]; const total=Number(j.total||0); const pg=_cosPage;
       setPagedResult('cosearch',
         meta(ms,`${total.toLocaleString()} filer${total!==1?'s':''} whose 10-K mentions "${_cosQ}"`),
         companyTable(items),
         paginator(pg,total,10,`runCoSearch(${pg-1})`,`runCoSearch(${pg+1})`),
         rawJson(j));
-    } catch(e){document.getElementById('res-cosearch-body').innerHTML=errBox(e.message);}
+    } catch(e){document.getElementById('res-cosearch-body').innerHTML=errWithRetry(e.message,'runCoSearch(_cosPage)');}
     finally{btn.disabled=false;}
   }
 
@@ -557,14 +563,14 @@
     try {
       const r=await fetch(U(`/filings?form=10-K&pageSize=10&page=${_fiPage}`));
       const ms=Math.round(performance.now()-t0);
-      if(!r.ok){const err=await r.json().catch(()=>({detail:r.statusText}));document.getElementById('res-filings-body').innerHTML=errBox(err.detail||r.statusText);return;}
+      if(!r.ok){const err=await r.json().catch(()=>({detail:r.statusText}));document.getElementById('res-filings-body').innerHTML=errWithRetry(err.detail||r.statusText,'runFi(_fiPage)');return;}
       const j=await r.json(); const items=j.items||[]; const total=Number(j.total||0); const pg=_fiPage;
       setPagedResult('filings',
         meta(ms,`${total.toLocaleString()} total 10-K filings`),
         filingTable(items),
         paginator(pg,total,10,`runFi(${pg-1})`,`runFi(${pg+1})`),
         rawJson(j));
-    } catch(e){document.getElementById('res-filings-body').innerHTML=errBox(e.message);}
+    } catch(e){document.getElementById('res-filings-body').innerHTML=errWithRetry(e.message,'runFi(_fiPage)');}
     finally{btn.disabled=false;}
   }
 
@@ -589,7 +595,7 @@
       if(_fsFrom)p.set('from',_fsFrom); if(_fsTo)p.set('to',_fsTo);
       const r=await fetch(U(`/filings?${p}`));
       const ms=Math.round(performance.now()-t0);
-      if(!r.ok){const err=await r.json().catch(()=>({detail:r.statusText}));document.getElementById('res-fsearch-body').innerHTML=errBox(err.detail||r.statusText);return;}
+      if(!r.ok){const err=await r.json().catch(()=>({detail:r.statusText}));document.getElementById('res-fsearch-body').innerHTML=errWithRetry(err.detail||r.statusText,'runFs(_fsPage)');return;}
       const j=await r.json(); const items=j.items||[]; const total=Number(j.total||0); const pg=_fsPage;
       const label=_fsEntity?`"${_fsEntity}"`:`"${_fsQ}"`;
       setPagedResult('fsearch',
@@ -597,7 +603,7 @@
         items.length?filingTable(items):'<p style="font-size:.75rem;color:#71717a">No results.</p>',
         paginator(pg,total,10,`runFs(${pg-1})`,`runFs(${pg+1})`),
         rawJson(j));
-    } catch(e){document.getElementById('res-fsearch-body').innerHTML=errBox(e.message);}
+    } catch(e){document.getElementById('res-fsearch-body').innerHTML=errWithRetry(e.message,'runFs(_fsPage)');}
     finally{btn.disabled=false;}
   }
 
@@ -612,7 +618,9 @@
     try {
       const p=new URLSearchParams({from,to}); if(q)p.set('q',q);
       const r=await fetch(U(`/aggregates?${p}`));
-      const j=await r.json(); const ms=Math.round(performance.now()-t0);
+      const ms=Math.round(performance.now()-t0);
+      if(!r.ok){const err=await r.json().catch(()=>({detail:r.statusText}));document.getElementById('res-agg').innerHTML=errWithRetry(err.detail||r.statusText,'runAgg()');return;}
+      const j=await r.json();
       const data=j.data||[]; const total=j.totalFilings||0;
       const mx=Math.max(...data.map(d=>d.count),1);
       const n=data.length;
@@ -632,7 +640,7 @@
       const tbl=n?`<div style="overflow-x:auto;border-radius:.75rem;border:1px solid rgba(255,255,255,0.06)"><table style="width:100%;border-collapse:collapse"><thead><tr>${TH('Month')}${TH('Filings')}<th style="padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.06);width:120px"></th></tr></thead><tbody>${trows}</tbody></table></div>`:'<p style="font-size:.75rem;color:#71717a">No data for this range.</p>';
       document.getElementById('res-agg').innerHTML=
         meta(ms,`${n} month${n!==1?'s':''} · ${from} → ${to}`)+(n?stats+chart+tbl:tbl)+rawJson(j);
-    } catch(e){document.getElementById('res-agg').innerHTML=errBox(e.message);}
+    } catch(e){document.getElementById('res-agg').innerHTML=errWithRetry(e.message,'runAgg()');}
     finally{btn.disabled=false;}
   }
 
@@ -641,11 +649,13 @@
     const t0=performance.now();
     try {
       const r=await fetch(U('/dataset-bounds'));
-      const j=await r.json(); const ms=Math.round(performance.now()-t0);
+      const ms=Math.round(performance.now()-t0);
+      if(!r.ok){const err=await r.json().catch(()=>({detail:r.statusText}));document.getElementById('res-bounds').innerHTML=errWithRetry(err.detail||r.statusText,'runBounds()');return;}
+      const j=await r.json();
       document.getElementById('res-bounds').innerHTML=
         meta(ms,'EDGAR full-text search date range')+
         `<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">${[{l:'Earliest filing',v:j.from||'—',c:'#818cf8'},{l:'Latest filing',v:j.to||'—',c:'#34d399'}].map(s=>`<div class="stat-card"><p style="font-size:10px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px;color:#52525b">${s.l}</p><p style="font-size:1rem;font-weight:700;font-family:'JetBrains Mono',monospace;color:${s.c}">${esc(s.v)}</p></div>`).join('')}</div>`+rawJson(j);
-    } catch(e){document.getElementById('res-bounds').innerHTML=errBox(e.message);}
+    } catch(e){document.getElementById('res-bounds').innerHTML=errWithRetry(e.message,'runBounds()');}
   }
 
   async function runHealth() {
@@ -656,8 +666,8 @@
       const j=await r.json(); const ms=Math.round(performance.now()-t0);
       document.getElementById('res-health').innerHTML=
         meta(ms,r.ok?'backend is up':'backend error')+
-        (r.ok?`<div class="ok-box">✓ ${j.status}</div>`:`<div class="err-box">${JSON.stringify(j)}</div>`);
-    } catch(e){document.getElementById('res-health').innerHTML=errBox(e.message);}
+        (r.ok?`<div class="ok-box">✓ ${j.status}</div>`:errWithRetry(JSON.stringify(j),'runHealth()'));
+    } catch(e){document.getElementById('res-health').innerHTML=errWithRetry(e.message,'runHealth()');}
   }
 
   function setSample(el){document.getElementById('chat-msg').value=el.textContent.trim();}
@@ -688,7 +698,7 @@
         body:JSON.stringify({message:msg,...(sid?{session_id:sid}:{})}),signal:_abort.signal});
       if(!r.ok){
         const err=await r.json().catch(()=>({detail:r.statusText}));
-        document.getElementById('res-chat').innerHTML=meta(Math.round(performance.now()-t0),'error')+`<div class="err-box">${err.detail||JSON.stringify(err)}</div>`;
+        document.getElementById('res-chat').innerHTML=meta(Math.round(performance.now()-t0),'error')+errWithRetry(err.detail||JSON.stringify(err),'runChat()');
         return;
       }
       const reader=r.body.getReader(),dec=new TextDecoder(); let buf='';
@@ -717,7 +727,7 @@
           }
         }
       }
-    } catch(e){if(e.name!=='AbortError')document.getElementById('res-chat').innerHTML=errBox(e.message);}
+    } catch(e){if(e.name!=='AbortError')document.getElementById('res-chat').innerHTML=errWithRetry(e.message,'runChat()');}
     finally{
       document.getElementById('chat-btn').disabled=false;
       document.getElementById('chat-stop').style.display='none';
@@ -736,7 +746,7 @@
     try {
       const r=await fetch(U(`/sessions/${encodeURIComponent(sid)}/history`));
       const j=await r.json(); const ms=Math.round(performance.now()-t0);
-      if(!r.ok){document.getElementById('res-history').innerHTML=meta(ms,'error')+`<div class="err-box">${j.detail||JSON.stringify(j)}</div>`;return;}
+      if(!r.ok){document.getElementById('res-history').innerHTML=meta(ms,'error')+errWithRetry(j.detail||JSON.stringify(j),'runHistory()');return;}
       const msgs=j.messages||[];
       const rows=msgs.map(m=>{
         const role=m.role||'?';
