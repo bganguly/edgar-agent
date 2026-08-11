@@ -280,6 +280,18 @@ if [[ "$_SANITY" =~ ^[Yy]$ ]]; then
     fi
   }
 
+  _fetch() {
+    local url="$1"
+    local out
+    out=$(curl -sf "$url" --max-time 20 2>/dev/null)
+    if [[ -z "$out" ]]; then
+      printf '    (no response — retrying in 5 s...)\n'
+      sleep 5
+      out=$(curl -sf "$url" --max-time 20 2>/dev/null)
+    fi
+    printf '%s' "$out"
+  }
+
   printf '\n=== post-deploy sanity check ===\n'
   printf '  (cold-start may take ~15 s — waiting for first response)\n\n'
 
@@ -288,42 +300,42 @@ if [[ "$_SANITY" =~ ^[Yy]$ ]]; then
   _TO="2026-12-31"
   _FORM="10-K"
 
-  _r1=$(curl -sf "${BACKEND_URL}/health" --max-time 20 2>/dev/null)
+  _r1=$(_fetch "${BACKEND_URL}/health")
   [[ "$(printf '%s' "$_r1" | python3 -c "import sys,json;print(json.load(sys.stdin).get('status',''))" 2>/dev/null)" == "ok" ]] \
     && _chk 1 "GET /health" 1 \
     || _chk 1 "GET /health" 0 "response: ${_r1:-no response}"
 
-  _r2=$(curl -sf "${BACKEND_URL}/companies?q=${_Q}&page=1&pageSize=5" --max-time 20 2>/dev/null)
+  _r2=$(_fetch "${BACKEND_URL}/companies?q=${_Q}&page=1&pageSize=5")
   _n2=$(printf '%s' "$_r2" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('total',0))" 2>/dev/null || echo "")
   [[ -n "$_n2" && "$_n2" -gt 0 ]] \
     && _chk 2 "GET /companies?q=${_Q}" 1 "total=${_n2}" \
     || _chk 2 "GET /companies?q=${_Q}" 0 "response: ${_r2:-no response}"
 
-  _r3=$(curl -sf "${BACKEND_URL}/companies/search?q=${_Q}&page=1&pageSize=5" --max-time 20 2>/dev/null)
+  _r3=$(_fetch "${BACKEND_URL}/companies/search?q=${_Q}&page=1&pageSize=5")
   _n3=$(printf '%s' "$_r3" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('total',0))" 2>/dev/null || echo "")
   [[ -n "$_n3" && "$_n3" -gt 0 ]] \
     && _chk 3 "GET /companies/search?q=${_Q}" 1 "total=${_n3}" \
     || _chk 3 "GET /companies/search?q=${_Q}" 0 "response: ${_r3:-no response}"
 
-  _r4=$(curl -sf "${BACKEND_URL}/filings/count?q=${_Q}&from=${_FROM}&to=${_TO}&form=${_FORM}" --max-time 20 2>/dev/null)
+  _r4=$(_fetch "${BACKEND_URL}/filings/count?q=${_Q}&from=${_FROM}&to=${_TO}&form=${_FORM}")
   _n4=$(printf '%s' "$_r4" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('total',0))" 2>/dev/null || echo "")
   [[ -n "$_n4" && "$_n4" -gt 0 ]] \
     && _chk 4 "GET /filings/count?q=${_Q}&form=${_FORM}" 1 "total=${_n4}" \
     || _chk 4 "GET /filings/count?q=${_Q}&form=${_FORM}" 0 "response: ${_r4:-no response}"
 
-  _r5=$(curl -sf "${BACKEND_URL}/filings?q=${_Q}&from=${_FROM}&to=${_TO}&form=${_FORM}&page=1&pageSize=5" --max-time 20 2>/dev/null)
+  _r5=$(_fetch "${BACKEND_URL}/filings?q=${_Q}&from=${_FROM}&to=${_TO}&form=${_FORM}&page=1&pageSize=5")
   _n5=$(printf '%s' "$_r5" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('total',0))" 2>/dev/null || echo "")
   [[ -n "$_n5" && "$_n5" -gt 0 ]] \
     && _chk 5 "GET /filings?q=${_Q}&form=${_FORM}" 1 "total=${_n5}" \
     || _chk 5 "GET /filings?q=${_Q}&form=${_FORM}" 0 "response: ${_r5:-no response}"
 
-  _r6=$(curl -sf "${BACKEND_URL}/aggregates?q=${_Q}&from=${_FROM}&to=${_TO}&form=${_FORM}" --max-time 20 2>/dev/null)
+  _r6=$(_fetch "${BACKEND_URL}/aggregates?q=${_Q}&from=${_FROM}&to=${_TO}&form=${_FORM}")
   _n6=$(printf '%s' "$_r6" | python3 -c "import sys,json;d=json.load(sys.stdin);print(len(d.get('by_form',[]) or d.get('by_month',[]) or d))" 2>/dev/null || echo "")
   [[ -n "$_n6" && "$_n6" -gt 0 ]] \
     && _chk 6 "GET /aggregates?q=${_Q}&form=${_FORM}" 1 \
     || _chk 6 "GET /aggregates?q=${_Q}&form=${_FORM}" 0 "response: ${_r6:-no response}"
 
-  _r7=$(curl -sf "${BACKEND_URL}/dataset-bounds" --max-time 20 2>/dev/null)
+  _r7=$(_fetch "${BACKEND_URL}/dataset-bounds")
   _from7=$(printf '%s' "$_r7" | python3 -c "import sys,json;print(json.load(sys.stdin).get('from',''))" 2>/dev/null || echo "")
   [[ -n "$_from7" ]] \
     && _chk 7 "GET /dataset-bounds" 1 "from=${_from7}" \
