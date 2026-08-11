@@ -263,3 +263,72 @@ PORTFOLIO_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/portfol
 if [[ -x "$PORTFOLIO_SCRIPT" ]]; then
   bash "$PORTFOLIO_SCRIPT" --tier lite edgarAgent "$FRONTEND_URL" "$BACKEND_URL"
 fi
+
+# ── post-deploy sanity check ───────────────────────────────────────────────────
+printf '\nRun post-deploy sanity check? [y/N]: '
+read -r _SANITY
+if [[ "$_SANITY" =~ ^[Yy]$ ]]; then
+  _CP=0; _CF=0
+  _chk() {
+    local n="$1" label="$2" ok="$3" detail="${4:-}"
+    if [[ "$ok" == "1" ]]; then
+      printf '  [%s] PASS  %s%s\n' "$n" "$label" "${detail:+  ($detail)}"
+      _CP=$(( _CP + 1 ))
+    else
+      printf '  [%s] FAIL  %s%s\n' "$n" "$label" "${detail:+  — $detail}"
+      _CF=$(( _CF + 1 ))
+    fi
+  }
+
+  printf '\n=== post-deploy sanity check ===\n'
+  printf '  (cold-start may take ~15 s — waiting for first response)\n\n'
+
+  _Q="yahoo"
+  _FROM="2024-01-01"
+  _TO="2026-12-31"
+  _FORM="10-K"
+
+  _r1=$(curl -sf "${BACKEND_URL}/health" --max-time 20 2>/dev/null)
+  [[ "$(printf '%s' "$_r1" | python3 -c "import sys,json;print(json.load(sys.stdin).get('status',''))" 2>/dev/null)" == "ok" ]] \
+    && _chk 1 "GET /health" 1 \
+    || _chk 1 "GET /health" 0 "response: ${_r1:-no response}"
+
+  _r2=$(curl -sf "${BACKEND_URL}/companies?q=${_Q}&page=1&pageSize=5" --max-time 20 2>/dev/null)
+  _n2=$(printf '%s' "$_r2" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('total',0))" 2>/dev/null || echo "")
+  [[ -n "$_n2" && "$_n2" -gt 0 ]] \
+    && _chk 2 "GET /companies?q=${_Q}" 1 "total=${_n2}" \
+    || _chk 2 "GET /companies?q=${_Q}" 0 "response: ${_r2:-no response}"
+
+  _r3=$(curl -sf "${BACKEND_URL}/companies/search?q=${_Q}&page=1&pageSize=5" --max-time 20 2>/dev/null)
+  _n3=$(printf '%s' "$_r3" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('total',0))" 2>/dev/null || echo "")
+  [[ -n "$_n3" && "$_n3" -gt 0 ]] \
+    && _chk 3 "GET /companies/search?q=${_Q}" 1 "total=${_n3}" \
+    || _chk 3 "GET /companies/search?q=${_Q}" 0 "response: ${_r3:-no response}"
+
+  _r4=$(curl -sf "${BACKEND_URL}/filings/count?q=${_Q}&from=${_FROM}&to=${_TO}&form=${_FORM}" --max-time 20 2>/dev/null)
+  _n4=$(printf '%s' "$_r4" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('total',0))" 2>/dev/null || echo "")
+  [[ -n "$_n4" && "$_n4" -gt 0 ]] \
+    && _chk 4 "GET /filings/count?q=${_Q}&form=${_FORM}" 1 "total=${_n4}" \
+    || _chk 4 "GET /filings/count?q=${_Q}&form=${_FORM}" 0 "response: ${_r4:-no response}"
+
+  _r5=$(curl -sf "${BACKEND_URL}/filings?q=${_Q}&from=${_FROM}&to=${_TO}&form=${_FORM}&page=1&pageSize=5" --max-time 20 2>/dev/null)
+  _n5=$(printf '%s' "$_r5" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('total',0))" 2>/dev/null || echo "")
+  [[ -n "$_n5" && "$_n5" -gt 0 ]] \
+    && _chk 5 "GET /filings?q=${_Q}&form=${_FORM}" 1 "total=${_n5}" \
+    || _chk 5 "GET /filings?q=${_Q}&form=${_FORM}" 0 "response: ${_r5:-no response}"
+
+  _r6=$(curl -sf "${BACKEND_URL}/aggregates?q=${_Q}&from=${_FROM}&to=${_TO}&form=${_FORM}" --max-time 20 2>/dev/null)
+  _n6=$(printf '%s' "$_r6" | python3 -c "import sys,json;d=json.load(sys.stdin);print(len(d.get('by_form',[]) or d.get('by_month',[]) or d))" 2>/dev/null || echo "")
+  [[ -n "$_n6" && "$_n6" -gt 0 ]] \
+    && _chk 6 "GET /aggregates?q=${_Q}&form=${_FORM}" 1 \
+    || _chk 6 "GET /aggregates?q=${_Q}&form=${_FORM}" 0 "response: ${_r6:-no response}"
+
+  _r7=$(curl -sf "${BACKEND_URL}/dataset-bounds" --max-time 20 2>/dev/null)
+  _from7=$(printf '%s' "$_r7" | python3 -c "import sys,json;print(json.load(sys.stdin).get('from',''))" 2>/dev/null || echo "")
+  [[ -n "$_from7" ]] \
+    && _chk 7 "GET /dataset-bounds" 1 "from=${_from7}" \
+    || _chk 7 "GET /dataset-bounds" 0 "response: ${_r7:-no response}"
+
+  printf '\n  Results: %d passed, %d failed\n' "$_CP" "$_CF"
+  (( _CF > 0 )) && printf '\n  !! %d CHECK(S) FAILED — review above before presenting\n' "$_CF" || true
+fi
