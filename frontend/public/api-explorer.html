@@ -75,7 +75,7 @@
     .transition-colors{transition:color .15s,background-color .15s,border-color .15s}
 
     /* ── Responsive ── */
-    @media(min-width:640px){.sm-block{display:block}.sm-grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(min-width:640px){.sm-block{display:block}.sm-grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}#url-hint{display:inline}}
     @media(max-width:639px){.sm-block{display:none}}
 
     /* ── Component styles ── */
@@ -155,15 +155,15 @@
   </div>
 
   <!-- Base URL -->
-  <div class="glass rounded-xl flex flex-wrap items-center gap-3" style="padding:.625rem 1rem;max-width:640px">
+  <div class="glass rounded-xl flex items-center gap-3" style="padding:.625rem 1rem">
     <div class="flex items-center gap-2 shrink-0">
-      <span class="w-1\.5 h-1\.5 rounded-full shrink-0" style="background:#818cf8"></span>
+      <span style="width:6px;height:6px;border-radius:50%;background:#818cf8;display:inline-block;flex-shrink:0"></span>
       <span class="text-xs" style="color:#52525b">Backend base URL</span>
     </div>
     <input id="base-input" type="text"
       placeholder="same origin"
-      style="flex:1;min-width:200px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#e4e4e7;border-radius:8px;padding:5px 10px;font-size:.72rem;font-family:'JetBrains Mono',monospace;outline:none;transition:border-color .15s" />
-    <span class="text-xs sm-block" style="color:#52525b">override with <code style="color:#71717a">http://localhost:8000</code> for local dev</span>
+      style="flex:1;min-width:0;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#e4e4e7;border-radius:8px;padding:5px 10px;font-size:.72rem;font-family:'JetBrains Mono',monospace;outline:none;transition:border-color .15s" />
+    <span class="text-xs" style="color:#52525b;white-space:nowrap;display:none" id="url-hint">override with <code style="color:#71717a">http://localhost:8000</code> for local dev</span>
   </div>
 </section>
 
