@@ -106,6 +106,8 @@
     .sse-cur{display:inline-block;width:2px;height:13px;background:#6366f1;margin-left:1px;animation:blink .9s step-end infinite;vertical-align:text-bottom}
     @keyframes blink{50%{opacity:0}}
     .sse-sid{font-family:'JetBrains Mono',monospace;font-size:.67rem;color:#52525b;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.05)}
+    .flow-arrow{color:#3f3f46;margin:0 4px}
+    .flow-node{display:inline-flex;align-items:center;padding:2px 7px;border-radius:6px;font-size:.62rem;font-family:'JetBrains Mono',monospace}
     .sq{display:inline-flex;align-items:center;padding:3px 10px;border-radius:6px;font-size:.68rem;color:#6366f1;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);cursor:pointer;transition:all .12s;white-space:nowrap}
     .sq:hover{background:rgba(99,102,241,0.15);color:#a5b4fc}
     .stat-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:12px 16px}
@@ -133,15 +135,35 @@
 <section class="pt-28 pb-10 px-6 max-w-5xl mx-auto">
   <p class="text-xs font-medium tracking-widest uppercase mb-3" style="color:#818cf8">API Explorer</p>
   <h1 class="text-2xl font-bold mb-2" style="color:#f4f4f5">Live API — EDGAR 10-K Agent</h1>
-  <p class="text-sm max-w-xl mb-5" style="color:#71717a">
+  <p class="text-sm max-w-xl mb-4" style="color:#71717a">
     Run real requests against the FastAPI backend — company search, filing lookup, monthly aggregates, and live agent streaming over SEC EDGAR.
   </p>
-  <div class="flex items-center gap-1\.5 px-3 py-1\.5 rounded-lg"
-       style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);max-width:520px;min-width:0">
-    <span class="w-1\.5 h-1\.5 rounded-full shrink-0" style="background:#818cf8"></span>
+
+  <!-- Architecture flow -->
+  <div class="flex flex-wrap items-center mb-4" style="gap:4px;font-size:11px">
+    <span class="flow-node" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);color:#34d399">GET /companies</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-node" style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);color:#a5b4fc">EDGAR EFTS</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-node" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);color:#34d399">PostgreSQL</span>
+    <span class="flow-arrow">·</span>
+    <span class="flow-node" style="background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.2);color:#c4b5fd">POST /chat</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-node" style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);color:#a5b4fc">Claude agent loop</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-node" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);color:#34d399">SSE stream</span>
+  </div>
+
+  <!-- Base URL -->
+  <div class="glass rounded-xl flex flex-wrap items-center gap-3" style="padding:.625rem 1rem;max-width:640px">
+    <div class="flex items-center gap-2 shrink-0">
+      <span class="w-1\.5 h-1\.5 rounded-full shrink-0" style="background:#818cf8"></span>
+      <span class="text-xs" style="color:#52525b">Backend base URL</span>
+    </div>
     <input id="base-input" type="text"
       placeholder="same origin"
-      style="background:none;border:none;outline:none;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:#a1a1aa;width:100%;min-width:0" />
+      style="flex:1;min-width:200px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#e4e4e7;border-radius:8px;padding:5px 10px;font-size:.72rem;font-family:'JetBrains Mono',monospace;outline:none;transition:border-color .15s" />
+    <span class="text-xs sm-block" style="color:#52525b">override with <code style="color:#71717a">http://localhost:8000</code> for local dev</span>
   </div>
 </section>
 
