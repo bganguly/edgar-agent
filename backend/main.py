@@ -11,7 +11,7 @@ from agent import run_agent
 from edgar_api import get_filing_aggregates, search_companies, search_companies_by_entity, search_filings
 from sessions import append_message, get_history
 
-app = FastAPI(title="EDGAR Agent", docs_url=None, redoc_url=None)
+app = FastAPI(title="EDGAR Agent")
 
 app.add_middleware(
     CORSMiddleware,
