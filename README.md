@@ -5,6 +5,8 @@ The agent loop is implemented manually — no LangChain, no CrewAI — using the
 OpenAI-compatible function-calling interface. Responses stream token-by-token via SSE; tool calls are surfaced
 live in the UI so you can watch the agent reason in real time.
 
+**[→ Portfolio demo](https://bganguly.github.io/?open=edgar_10k_agent)**
+
 ---
 
 ## Using the App
