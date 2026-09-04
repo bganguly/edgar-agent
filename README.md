@@ -5,7 +5,17 @@ The agent loop is implemented manually — no LangChain, no CrewAI — using the
 OpenAI-compatible function-calling interface. Responses stream token-by-token via SSE; tool calls are surfaced
 live in the UI so you can watch the agent reason in real time.
 
-**[→ Portfolio demo](https://bganguly.github.io/?open=edgar_10k_agent)**
+---
+
+## Live Service
+
+| Endpoint | URL |
+|---|---|
+| **App** | https://edgar-frontend-77y7e2wykq-uc.a.run.app |
+| **API Explorer** | https://edgar-frontend-77y7e2wykq-uc.a.run.app/api-explorer |
+| **Portfolio demo** | https://bganguly.github.io/#edgar_10k_agent |
+
+> Cloud Run scales to zero when idle; first request may take ~5–10 s to wake.
 
 ---
 
