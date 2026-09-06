@@ -61,27 +61,6 @@ or a different filing period.
 
 ---
 
-## Running
-
-```bash
-./scripts/deploy.sh
-```
-
----
-
-| Component | Implementation |
-|---|---|
-| **Agent loop** | Manual `while stop_reason == "tool_use"` loop; tool results appended as `user` messages per Anthropic's multi-turn tool-use protocol |
-| **Tools** | `search_edgar` — EDGAR full-text search API, returns top-5 10-K filing URLs; `fetch_filing` — HTTP GET + BeautifulSoup HTML strip, first 12 K chars |
-| **Default model** | `claude-sonnet-5` (Anthropic) — switched to NVIDIA NIM `llama-3.1-nemotron-ultra-253b-v1` via `MODEL_PROVIDER=nvidia` env var |
-| **Streaming** | FastAPI `EventSourceResponse` (sse-starlette); yields `token`, `tool_call`, `session_id`, and `done` event types |
-| **Session storage** | In-process `defaultdict(list)` keyed by UUID; no external DB required |
-| **Backend** | FastAPI 0.115, Python 3.11+; `uvicorn` for local dev; Dockerfile present for containerised deploy |
-| **Frontend** | React 18 + Vite + TypeScript; plain `fetch` EventSource consumer; no UI framework |
-| **Tests** | `simulation_tests.py` — 5 scripted keyword-match scenarios; `eval.py` — LLM-as-judge scoring (1–5) via `claude-sonnet-5` |
-
----
-
 ## Architecture
 
 ### Agent loop — step by step
@@ -145,6 +124,27 @@ sequenceDiagram
 | **In-memory sessions** | No Redis or DB dependency keeps local setup to a single `uvicorn` command; acceptable trade-off for a demo where session loss on restart is not a problem |
 | **12 K char filing cap** | Balances context-window cost vs. completeness; most material facts (revenue, risk factors, segment results) appear in the first third of a 10-K |
 | **Same embeddings constraint (N/A)** | This agent does no vector search — EDGAR text is injected directly into the LLM context, so there is no embedding mismatch risk |
+
+## Running
+
+```bash
+./scripts/deploy.sh
+```
+
+---
+
+| Component | Implementation |
+|---|---|
+| **Agent loop** | Manual `while stop_reason == "tool_use"` loop; tool results appended as `user` messages per Anthropic's multi-turn tool-use protocol |
+| **Tools** | `search_edgar` — EDGAR full-text search API, returns top-5 10-K filing URLs; `fetch_filing` — HTTP GET + BeautifulSoup HTML strip, first 12 K chars |
+| **Default model** | `claude-sonnet-5` (Anthropic) — switched to NVIDIA NIM `llama-3.1-nemotron-ultra-253b-v1` via `MODEL_PROVIDER=nvidia` env var |
+| **Streaming** | FastAPI `EventSourceResponse` (sse-starlette); yields `token`, `tool_call`, `session_id`, and `done` event types |
+| **Session storage** | In-process `defaultdict(list)` keyed by UUID; no external DB required |
+| **Backend** | FastAPI 0.115, Python 3.11+; `uvicorn` for local dev; Dockerfile present for containerised deploy |
+| **Frontend** | React 18 + Vite + TypeScript; plain `fetch` EventSource consumer; no UI framework |
+| **Tests** | `simulation_tests.py` — 5 scripted keyword-match scenarios; `eval.py` — LLM-as-judge scoring (1–5) via `claude-sonnet-5` |
+
+---
 
 ## API
 
