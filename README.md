@@ -125,14 +125,6 @@ sequenceDiagram
 | **12 K char filing cap** | Balances context-window cost vs. completeness; most material facts (revenue, risk factors, segment results) appear in the first third of a 10-K |
 | **Same embeddings constraint (N/A)** | This agent does no vector search — EDGAR text is injected directly into the LLM context, so there is no embedding mismatch risk |
 
-## Deployment / Running
-
-```bash
-./scripts/deploy.sh
-```
-
----
-
 ## Stack
 
 | Component | Implementation |
@@ -145,6 +137,14 @@ sequenceDiagram
 | **Backend** | FastAPI 0.115, Python 3.11+; `uvicorn` for local dev; Dockerfile present for containerised deploy |
 | **Frontend** | React 18 + Vite + TypeScript; plain `fetch` EventSource consumer; no UI framework |
 | **Tests** | `simulation_tests.py` — 5 scripted keyword-match scenarios; `eval.py` — LLM-as-judge scoring (1–5) via `claude-sonnet-5` |
+
+---
+
+## Deployment / Running
+
+```bash
+./scripts/deploy.sh
+```
 
 ---
 
