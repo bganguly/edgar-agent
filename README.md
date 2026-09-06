@@ -125,13 +125,15 @@ sequenceDiagram
 | **12 K char filing cap** | Balances context-window cost vs. completeness; most material facts (revenue, risk factors, segment results) appear in the first third of a 10-K |
 | **Same embeddings constraint (N/A)** | This agent does no vector search — EDGAR text is injected directly into the LLM context, so there is no embedding mismatch risk |
 
-## Running
+## Deployment / Running
 
 ```bash
 ./scripts/deploy.sh
 ```
 
 ---
+
+## Stack
 
 | Component | Implementation |
 |---|---|
