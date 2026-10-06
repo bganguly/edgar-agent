@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# deploy.sh — edgar-agent: local dev or GCP Cloud Run
-# Usage: ./scripts/deploy.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -10,94 +8,28 @@ FRONTEND_SVC="edgar-frontend"
 AR_REPO="edgar-agent"
 SA_NAME="edgar-runner"
 
-_local_running=0
-lsof -ti:8000 >/dev/null 2>&1 && _local_running=1 || true
-_gcp_deployed=0
-[[ -f "$ENV_FILE" ]] && _gcp_deployed=1 || true
+TARGET=""
+ACTIVE_ACCOUNT=""
+GCP_PROJECT=""
+GCP_REGION=""
+TAG=""
+AR_HOST=""
+BACKEND_IMAGE=""
+FRONTEND_IMAGE=""
+SA_EMAIL=""
+BACKEND_URL=""
+FRONTEND_URL=""
+_CP=0
+_CF=0
 
-printf '\n=== edgar-agent ===\n\n'
-printf '  [1] Local  — uvicorn + npm dev, no Docker'
-(( _local_running )) && printf ' [running]' || printf ' [not detected]'
-printf '\n'
-printf '  [2] Cloud  — GCP Cloud Run  (~$0/mo scales-to-zero)'
-(( _gcp_deployed )) && printf ' [deployed]' || printf ' [not deployed]'
-printf '\n'
-printf '\nChoice [1/2, default 2]: '
-read -r _MODE
-case "$_MODE" in
-  1) TARGET="local" ;;
-  *) TARGET="cloud" ;;
-esac
-
-# ── local mode ────────────────────────────────────────────────────────────────
-if [[ "$TARGET" == "local" ]]; then
-  [[ -f "$ROOT/.env" ]] || { echo "Error: .env not found. Copy .env.example and fill in ANTHROPIC_API_KEY."; exit 1; }
-  source "$ROOT/.env"
-
-  cd "$ROOT/backend"
-  [[ -d .venv ]] || python3 -m venv .venv
-  source .venv/bin/activate
-  pip install -q -r "$ROOT/requirements.txt"
-  uvicorn main:app --host 0.0.0.0 --port 8000 --reload &
-  BACKEND_PID=$!
-  echo "Backend  → http://localhost:8000/health"
-
-  cd "$ROOT/frontend"
-  [[ -d node_modules ]] || npm install
-  npm run dev &
-  FRONTEND_PID=$!
-  echo "Frontend → http://localhost:5173"
-
-  _cleanup() { kill "$BACKEND_PID" "$FRONTEND_PID" 2>/dev/null || true; }
-  trap _cleanup EXIT INT TERM
-  wait "$BACKEND_PID" "$FRONTEND_PID"
-  exit 0
-fi
-
-# ── GCP Cloud Run ─────────────────────────────────────────────────────────────
-printf '\n--- GCP Cloud Run ---\n'
-printf '  Backend:  Cloud Run (scales to zero)\n'
-printf '  Frontend: Cloud Run (scales to zero, nginx proxy)\n'
-printf '  Cost est: ~$0/mo  (Cloud Run free tier covers demo traffic)\n'
-
-echo ""
-echo "[1/4] Checking gcloud auth..."
-if ! command -v gcloud >/dev/null 2>&1; then
-  if command -v brew >/dev/null 2>&1; then
-    printf '  gcloud not found — installing via Homebrew...\n'
-    brew install --cask google-cloud-sdk
-    source "$(brew --prefix)/share/google-cloud-sdk/path.bash.inc" 2>/dev/null || true
-  else
-    printf '  Install gcloud: https://cloud.google.com/sdk/docs/install\n'; exit 1
-  fi
-fi
-ACTIVE_ACCOUNT=$(gcloud auth list --filter=status:ACTIVE --format="value(account)" 2>/dev/null | head -1 || true)
-if [[ -z "$ACTIVE_ACCOUNT" ]]; then
-  printf '  Not authenticated — logging in...\n'
-  gcloud auth login
-  ACTIVE_ACCOUNT=$(gcloud auth list --filter=status:ACTIVE --format="value(account)" 2>/dev/null | head -1 || true)
-  [[ -n "$ACTIVE_ACCOUNT" ]] || { printf '  Login did not complete.\n' >&2; exit 1; }
-fi
-printf '  Authenticated as: %s\n' "$ACTIVE_ACCOUNT"
-
-[[ -f "$ENV_FILE" ]] && source "$ENV_FILE"
-_CONFIG_PROJECT=$(gcloud config get-value project 2>/dev/null || true)
-GCP_PROJECT="${_CONFIG_PROJECT:-${GCP_PROJECT:-}}"
-[[ -n "$GCP_PROJECT" ]] || { printf '  Set a project: gcloud config set project <id>\n' >&2; exit 1; }
-_CONFIG_REGION=$(gcloud config get-value compute/region 2>/dev/null || true)
-GCP_REGION="${_CONFIG_REGION:-${GCP_REGION:-us-central1}}"
-printf '  Project: %s  Region: %s\n' "$GCP_PROJECT" "$GCP_REGION"
-
-echo ""
-echo "[2/4] API keys..."
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
 _prompt_key() {
   local _label="$1" _secret_name="$2" _req="${3:-optional}"
   local _cur _ans _val
   _cur=$(gcloud secrets versions access latest --secret="$_secret_name" --project="$GCP_PROJECT" 2>/dev/null || echo "")
   if [[ -n "$_cur" ]]; then
-    printf '  Use stored %s (%s...%s) (Y/n): ' \
-      "$_label" "${_cur:0:8}" "${_cur: -4}" >&2
+    printf '  Use stored %s (%s...%s) (Y/n): ' "$_label" "${_cur:0:8}" "${_cur: -4}" >&2
     read -r _ans
     _ans="${_ans:-Y}"
     if [[ ! "$_ans" =~ ^[Yy] ]]; then
@@ -109,8 +41,7 @@ _prompt_key() {
   else
     local _env_val="${!_label:-}"
     if [[ -n "$_env_val" ]]; then
-      printf '  Use .env %s (%s...%s) (Y/n): ' \
-        "$_label" "${_env_val:0:8}" "${_env_val: -4}" >&2
+      printf '  Use .env %s (%s...%s) (Y/n): ' "$_label" "${_env_val:0:8}" "${_env_val: -4}" >&2
       read -r _ans
       _ans="${_ans:-Y}"
       if [[ ! "$_ans" =~ ^[Yy] ]]; then
@@ -132,32 +63,6 @@ _prompt_key() {
   fi
 }
 
-gcloud services enable secretmanager.googleapis.com --project "$GCP_PROJECT" --quiet 2>/dev/null
-
-SA_EMAIL="${SA_NAME}@${GCP_PROJECT}.iam.gserviceaccount.com"
-if ! gcloud iam service-accounts describe "$SA_EMAIL" --project="$GCP_PROJECT" &>/dev/null; then
-  printf '  Creating service account %s...\n' "$SA_EMAIL"
-  gcloud iam service-accounts create "$SA_NAME" \
-    --display-name="EDGAR Agent Cloud Run SA" \
-    --project="$GCP_PROJECT"
-fi
-gcloud projects add-iam-policy-binding "$GCP_PROJECT" \
-  --member="serviceAccount:${SA_EMAIL}" \
-  --role="roles/secretmanager.secretAccessor" --quiet 2>/dev/null || true
-
-[[ -f "$ROOT/.env" ]] && source "$ROOT/.env"
-for _sib in "$ROOT"/../*/.env; do
-  [[ -f "$_sib" ]] || continue
-  [[ -z "${ANTHROPIC_API_KEY:-}" ]] && \
-    ANTHROPIC_API_KEY=$(grep "^ANTHROPIC_API_KEY=" "$_sib" 2>/dev/null | cut -d= -f2- | head -1 || true)
-  [[ -z "${OPENAI_API_KEY:-}" ]] && \
-    OPENAI_API_KEY=$(grep "^OPENAI_API_KEY=" "$_sib" 2>/dev/null | cut -d= -f2- | head -1 || true)
-done
-export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}"
-export OPENAI_API_KEY="${OPENAI_API_KEY:-}"
-ANTHROPIC_API_KEY=$(_prompt_key "ANTHROPIC_API_KEY" "edgar-anthropic-key" required)
-OPENAI_API_KEY=$(_prompt_key    "OPENAI_API_KEY"    "edgar-openai-key"    optional)
-
 _upsert_secret() {
   local _name="$1" _val="$2"
   [[ -z "$_val" ]] && return
@@ -169,83 +74,220 @@ _upsert_secret() {
       --member="serviceAccount:${SA_EMAIL}" --role="roles/secretmanager.secretAccessor" --quiet 2>/dev/null || true
   fi
 }
-_upsert_secret edgar-anthropic-key "$ANTHROPIC_API_KEY"
-_upsert_secret edgar-openai-key    "${OPENAI_API_KEY:-}"
 
-echo ""
-echo "[3/4] Building images via Cloud Build..."
+_chk() {
+  local n="$1" label="$2" ok="$3" detail="${4:-}"
+  if [[ "$ok" == "1" ]]; then
+    printf '  [%s] PASS  %s%s\n' "$n" "$label" "${detail:+  ($detail)}"
+    _CP=$(( _CP + 1 ))
+  else
+    printf '  [%s] FAIL  %s%s\n' "$n" "$label" "${detail:+  — $detail}"
+    _CF=$(( _CF + 1 ))
+  fi
+}
 
-gcloud services enable \
-  artifactregistry.googleapis.com \
-  run.googleapis.com \
-  cloudbuild.googleapis.com \
-  --project "$GCP_PROJECT" --quiet
+_fetch() {
+  local url="$1" out
+  out=$(curl -sf "$url" --max-time 20 2>/dev/null)
+  if [[ -z "$out" ]]; then
+    printf '    (no response — retrying in 5 s...)\n'
+    sleep 5
+    out=$(curl -sf "$url" --max-time 20 2>/dev/null)
+  fi
+  printf '%s' "$out"
+}
 
-if ! gcloud artifacts repositories describe "$AR_REPO" \
-     --project="$GCP_PROJECT" --location="$GCP_REGION" &>/dev/null; then
-  printf '  Creating Artifact Registry repo %s...\n' "$AR_REPO"
-  gcloud artifacts repositories create "$AR_REPO" \
-    --repository-format=docker \
-    --location="$GCP_REGION" \
-    --project="$GCP_PROJECT"
-fi
+# ── Menu ──────────────────────────────────────────────────────────────────────
 
-AR_HOST="${GCP_REGION}-docker.pkg.dev"
-_GIT_HASH=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || true)
-TAG="${_GIT_HASH:+${_GIT_HASH}-}$(date +%Y%m%d%H%M%S)"
-BACKEND_IMAGE="${AR_HOST}/${GCP_PROJECT}/${AR_REPO}/${BACKEND_SVC}:${TAG}"
-FRONTEND_IMAGE="${AR_HOST}/${GCP_PROJECT}/${AR_REPO}/${FRONTEND_SVC}:${TAG}"
+_prompt_menu() {
+  local _local_running=0 _gcp_deployed=0
+  lsof -ti:8000 >/dev/null 2>&1 && _local_running=1 || true
+  [[ -f "$ENV_FILE" ]] && _gcp_deployed=1 || true
 
-printf '  Building backend (%s)...\n' "$BACKEND_SVC"
-cp "$ROOT/requirements.txt" "$ROOT/backend/requirements.txt"
-gcloud builds submit \
-  --tag "$BACKEND_IMAGE" \
-  --project "$GCP_PROJECT" \
-  "$ROOT/backend"
-rm -f "$ROOT/backend/requirements.txt"
+  printf '\n=== edgar-agent ===\n\n'
+  printf '  [1] Local  — uvicorn + npm dev, no Docker'
+  (( _local_running )) && printf ' [running]' || printf ' [not detected]'
+  printf '\n'
+  printf '  [2] Cloud  — GCP Cloud Run  (~$0/mo scales-to-zero)'
+  (( _gcp_deployed )) && printf ' [deployed]' || printf ' [not deployed]'
+  printf '\n'
+  printf '\nChoice [1/2, default 2]: '
+  read -r _MODE
+  case "$_MODE" in
+    1) TARGET="local" ;;
+    *) TARGET="cloud" ;;
+  esac
+}
 
-printf '  Building frontend (%s)...\n' "$FRONTEND_SVC"
-gcloud builds submit \
-  --tag "$FRONTEND_IMAGE" \
-  --project "$GCP_PROJECT" \
-  "$ROOT/frontend"
+# ── Local ─────────────────────────────────────────────────────────────────────
 
-echo ""
-echo "[4/4] Deploying to Cloud Run..."
+_deploy_local() {
+  [[ -f "$ROOT/.env" ]] || { printf 'Error: .env not found. Copy .env.example and fill in ANTHROPIC_API_KEY.\n'; exit 1; }
+  source "$ROOT/.env"
 
-printf '  Deploying %s...\n' "$BACKEND_SVC"
-gcloud run deploy "$BACKEND_SVC" \
-  --image="$BACKEND_IMAGE" \
-  --region="$GCP_REGION" \
-  --project="$GCP_PROJECT" \
-  --service-account="$SA_EMAIL" \
-  --set-env-vars="ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY},OPENAI_API_KEY=${OPENAI_API_KEY:-}" \
-  --allow-unauthenticated \
-  --min-instances=0 \
-  --timeout=300 \
-  --quiet
+  cd "$ROOT/backend"
+  [[ -d .venv ]] || python3 -m venv .venv
+  source .venv/bin/activate
+  pip install -q -r "$ROOT/requirements.txt"
+  uvicorn main:app --host 0.0.0.0 --port 8000 --reload &
+  local BACKEND_PID=$!
+  printf 'Backend  → http://localhost:8000/health\n'
 
-BACKEND_URL=$(gcloud run services describe "$BACKEND_SVC" \
-  --region="$GCP_REGION" --project="$GCP_PROJECT" \
-  --format="value(status.url)")
-printf '  Backend: %s\n' "$BACKEND_URL"
+  cd "$ROOT/frontend"
+  [[ -d node_modules ]] || npm install
+  npm run dev &
+  local FRONTEND_PID=$!
+  printf 'Frontend → http://localhost:5173\n'
 
-printf '  Deploying %s...\n' "$FRONTEND_SVC"
-gcloud run deploy "$FRONTEND_SVC" \
-  --image="$FRONTEND_IMAGE" \
-  --region="$GCP_REGION" \
-  --project="$GCP_PROJECT" \
-  --service-account="$SA_EMAIL" \
-  --set-env-vars="BACKEND_URL=${BACKEND_URL}" \
-  --allow-unauthenticated \
-  --min-instances=0 \
-  --quiet
+  trap 'kill "$BACKEND_PID" "$FRONTEND_PID" 2>/dev/null || true' EXIT INT TERM
+  wait "$BACKEND_PID" "$FRONTEND_PID"
+}
 
-FRONTEND_URL=$(gcloud run services describe "$FRONTEND_SVC" \
-  --region="$GCP_REGION" --project="$GCP_PROJECT" \
-  --format="value(status.url)")
+# ── gcloud auth ───────────────────────────────────────────────────────────────
 
-cat > "$ENV_FILE" <<ENVEOF
+_check_gcloud_auth() {
+  if ! command -v gcloud >/dev/null 2>&1; then
+    if command -v brew >/dev/null 2>&1; then
+      printf '  gcloud not found — installing via Homebrew...\n'
+      brew install --cask google-cloud-sdk
+      source "$(brew --prefix)/share/google-cloud-sdk/path.bash.inc" 2>/dev/null || true
+    else
+      printf '  Install gcloud: https://cloud.google.com/sdk/docs/install\n'; exit 1
+    fi
+  fi
+  ACTIVE_ACCOUNT=$(gcloud auth list --filter=status:ACTIVE --format="value(account)" 2>/dev/null | head -1 || true)
+  if [[ -z "$ACTIVE_ACCOUNT" ]]; then
+    printf '  Not authenticated — logging in...\n'
+    gcloud auth login
+    ACTIVE_ACCOUNT=$(gcloud auth list --filter=status:ACTIVE --format="value(account)" 2>/dev/null | head -1 || true)
+    [[ -n "$ACTIVE_ACCOUNT" ]] || { printf '  Login did not complete.\n' >&2; exit 1; }
+  fi
+  printf '  Authenticated as: %s\n' "$ACTIVE_ACCOUNT"
+}
+
+# ── Project / region ──────────────────────────────────────────────────────────
+
+_resolve_project() {
+  [[ -f "$ENV_FILE" ]] && source "$ENV_FILE"
+  local _CONFIG_PROJECT _CONFIG_REGION
+  _CONFIG_PROJECT=$(gcloud config get-value project 2>/dev/null || true)
+  GCP_PROJECT="${_CONFIG_PROJECT:-${GCP_PROJECT:-}}"
+  [[ -n "$GCP_PROJECT" ]] || { printf '  Set a project: gcloud config set project <id>\n' >&2; exit 1; }
+  _CONFIG_REGION=$(gcloud config get-value compute/region 2>/dev/null || true)
+  GCP_REGION="${_CONFIG_REGION:-${GCP_REGION:-us-central1}}"
+  printf '  Project: %s  Region: %s\n' "$GCP_PROJECT" "$GCP_REGION"
+}
+
+# ── Service account + secrets ─────────────────────────────────────────────────
+
+_ensure_service_account() {
+  SA_EMAIL="${SA_NAME}@${GCP_PROJECT}.iam.gserviceaccount.com"
+  if ! gcloud iam service-accounts describe "$SA_EMAIL" --project="$GCP_PROJECT" &>/dev/null; then
+    printf '  Creating service account %s...\n' "$SA_EMAIL"
+    gcloud iam service-accounts create "$SA_NAME" \
+      --display-name="EDGAR Agent Cloud Run SA" \
+      --project="$GCP_PROJECT"
+  fi
+  gcloud projects add-iam-policy-binding "$GCP_PROJECT" \
+    --member="serviceAccount:${SA_EMAIL}" \
+    --role="roles/secretmanager.secretAccessor" --quiet 2>/dev/null || true
+}
+
+_setup_secrets() {
+  gcloud services enable secretmanager.googleapis.com --project "$GCP_PROJECT" --quiet 2>/dev/null
+
+  [[ -f "$ROOT/.env" ]] && source "$ROOT/.env"
+  for _sib in "$ROOT"/../*/.env; do
+    [[ -f "$_sib" ]] || continue
+    [[ -z "${ANTHROPIC_API_KEY:-}" ]] && \
+      ANTHROPIC_API_KEY=$(grep "^ANTHROPIC_API_KEY=" "$_sib" 2>/dev/null | cut -d= -f2- | head -1 || true)
+    [[ -z "${OPENAI_API_KEY:-}" ]] && \
+      OPENAI_API_KEY=$(grep "^OPENAI_API_KEY=" "$_sib" 2>/dev/null | cut -d= -f2- | head -1 || true)
+  done
+  export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}"
+  export OPENAI_API_KEY="${OPENAI_API_KEY:-}"
+
+  ANTHROPIC_API_KEY=$(_prompt_key "ANTHROPIC_API_KEY" "edgar-anthropic-key" required)
+  OPENAI_API_KEY=$(_prompt_key    "OPENAI_API_KEY"    "edgar-openai-key"    optional)
+
+  _upsert_secret edgar-anthropic-key "$ANTHROPIC_API_KEY"
+  _upsert_secret edgar-openai-key    "${OPENAI_API_KEY:-}"
+}
+
+# ── Build images ──────────────────────────────────────────────────────────────
+
+_build_images() {
+  gcloud services enable \
+    artifactregistry.googleapis.com \
+    run.googleapis.com \
+    cloudbuild.googleapis.com \
+    --project "$GCP_PROJECT" --quiet
+
+  if ! gcloud artifacts repositories describe "$AR_REPO" \
+       --project="$GCP_PROJECT" --location="$GCP_REGION" &>/dev/null; then
+    printf '  Creating Artifact Registry repo %s...\n' "$AR_REPO"
+    gcloud artifacts repositories create "$AR_REPO" \
+      --repository-format=docker \
+      --location="$GCP_REGION" \
+      --project="$GCP_PROJECT"
+  fi
+
+  AR_HOST="${GCP_REGION}-docker.pkg.dev"
+  local _GIT_HASH
+  _GIT_HASH=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || true)
+  TAG="${_GIT_HASH:+${_GIT_HASH}-}$(date +%Y%m%d%H%M%S)"
+  BACKEND_IMAGE="${AR_HOST}/${GCP_PROJECT}/${AR_REPO}/${BACKEND_SVC}:${TAG}"
+  FRONTEND_IMAGE="${AR_HOST}/${GCP_PROJECT}/${AR_REPO}/${FRONTEND_SVC}:${TAG}"
+
+  printf '  Building backend (%s)...\n' "$BACKEND_SVC"
+  cp "$ROOT/requirements.txt" "$ROOT/backend/requirements.txt"
+  gcloud builds submit --tag "$BACKEND_IMAGE" --project "$GCP_PROJECT" "$ROOT/backend"
+  rm -f "$ROOT/backend/requirements.txt"
+
+  printf '  Building frontend (%s)...\n' "$FRONTEND_SVC"
+  gcloud builds submit --tag "$FRONTEND_IMAGE" --project "$GCP_PROJECT" "$ROOT/frontend"
+}
+
+# ── Deploy to Cloud Run ───────────────────────────────────────────────────────
+
+_deploy_cloud_run() {
+  printf '  Deploying %s...\n' "$BACKEND_SVC"
+  gcloud run deploy "$BACKEND_SVC" \
+    --image="$BACKEND_IMAGE" \
+    --region="$GCP_REGION" \
+    --project="$GCP_PROJECT" \
+    --service-account="$SA_EMAIL" \
+    --set-env-vars="ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY},OPENAI_API_KEY=${OPENAI_API_KEY:-}" \
+    --allow-unauthenticated \
+    --min-instances=0 \
+    --timeout=300 \
+    --quiet
+
+  BACKEND_URL=$(gcloud run services describe "$BACKEND_SVC" \
+    --region="$GCP_REGION" --project="$GCP_PROJECT" \
+    --format="value(status.url)")
+  printf '  Backend: %s\n' "$BACKEND_URL"
+
+  printf '  Deploying %s...\n' "$FRONTEND_SVC"
+  gcloud run deploy "$FRONTEND_SVC" \
+    --image="$FRONTEND_IMAGE" \
+    --region="$GCP_REGION" \
+    --project="$GCP_PROJECT" \
+    --service-account="$SA_EMAIL" \
+    --set-env-vars="BACKEND_URL=${BACKEND_URL}" \
+    --allow-unauthenticated \
+    --min-instances=0 \
+    --quiet
+
+  FRONTEND_URL=$(gcloud run services describe "$FRONTEND_SVC" \
+    --region="$GCP_REGION" --project="$GCP_PROJECT" \
+    --format="value(status.url)")
+}
+
+# ── Persist config ────────────────────────────────────────────────────────────
+
+_persist_config() {
+  cat > "$ENV_FILE" <<ENVEOF
 GCP_PROJECT=${GCP_PROJECT}
 GCP_REGION=${GCP_REGION}
 AR_REPO=${AR_REPO}
@@ -253,85 +295,68 @@ BACKEND_URL=${BACKEND_URL}
 FRONTEND_URL=${FRONTEND_URL}
 ENVEOF
 
-printf '\n✓ EDGAR Agent live (Cloud Run)\n'
-printf '  App:       %s\n' "$FRONTEND_URL"
-printf '  API:       %s\n' "$BACKEND_URL"
-printf '  Cost:      ~$0/mo  (Cloud Run free tier)\n'
-printf '  Tear down: ./scripts/infra-down.sh\n'
+  printf '\nEDGAR Agent live (Cloud Run)\n'
+  printf '  App:       %s\n' "$FRONTEND_URL"
+  printf '  API:       %s\n' "$BACKEND_URL"
+  printf '  Cost:      ~$0/mo  (Cloud Run free tier)\n'
+  printf '  Tear down: ./scripts/infra-down.sh\n'
+}
 
+# ── Post-deploy sanity check ──────────────────────────────────────────────────
 
-# ── post-deploy sanity check ───────────────────────────────────────────────────
-printf '\nRun post-deploy sanity check? [y/N]: '
-read -r _SANITY
-if [[ "$_SANITY" =~ ^[Yy]$ ]]; then
+_post_deploy_checks() {
+  printf '\nRun post-deploy sanity check? [y/N]: '
+  read -r _SANITY
+  [[ "$_SANITY" =~ ^[Yy]$ ]] || return 0
+
   _CP=0; _CF=0
-  _chk() {
-    local n="$1" label="$2" ok="$3" detail="${4:-}"
-    if [[ "$ok" == "1" ]]; then
-      printf '  [%s] PASS  %s%s\n' "$n" "$label" "${detail:+  ($detail)}"
-      _CP=$(( _CP + 1 ))
-    else
-      printf '  [%s] FAIL  %s%s\n' "$n" "$label" "${detail:+  — $detail}"
-      _CF=$(( _CF + 1 ))
-    fi
-  }
-
-  _fetch() {
-    local url="$1"
-    local out
-    out=$(curl -sf "$url" --max-time 20 2>/dev/null)
-    if [[ -z "$out" ]]; then
-      printf '    (no response — retrying in 5 s...)\n'
-      sleep 5
-      out=$(curl -sf "$url" --max-time 20 2>/dev/null)
-    fi
-    printf '%s' "$out"
-  }
+  local _ENTITY="yahoo" _TEXT="capex" _FROM="2024-01-01" _TO="2026-12-31" _FORM="10-K"
 
   printf '\n=== post-deploy sanity check ===\n'
   printf '  (cold-start may take ~15 s — waiting for first response)\n\n'
 
-  _ENTITY="yahoo"
-  _TEXT="capex"
-  _FROM="2024-01-01"
-  _TO="2026-12-31"
-  _FORM="10-K"
-
+  local _r1
   _r1=$(_fetch "${BACKEND_URL}/health")
   [[ "$(printf '%s' "$_r1" | python3 -c "import sys,json;print(json.load(sys.stdin).get('status',''))" 2>/dev/null)" == "ok" ]] \
     && _chk 1 "GET /health" 1 \
     || _chk 1 "GET /health" 0 "response: ${_r1:-no response}"
 
+  local _r2 _n2
   _r2=$(_fetch "${BACKEND_URL}/companies?q=${_ENTITY}&page=1&pageSize=5")
   _n2=$(printf '%s' "$_r2" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('total',0))" 2>/dev/null || echo "")
   [[ -n "$_n2" && "$_n2" -gt 0 ]] \
     && _chk 2 "GET /companies?q=${_ENTITY}" 1 "total=${_n2}" \
     || _chk 2 "GET /companies?q=${_ENTITY}" 0 "response: ${_r2:-no response}"
 
+  local _r3 _n3
   _r3=$(_fetch "${BACKEND_URL}/companies/search?q=${_ENTITY}&page=1&pageSize=5")
   _n3=$(printf '%s' "$_r3" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('total',0))" 2>/dev/null || echo "")
   [[ -n "$_n3" && "$_n3" -gt 0 ]] \
     && _chk 3 "GET /companies/search?q=${_ENTITY}" 1 "total=${_n3}" \
     || _chk 3 "GET /companies/search?q=${_ENTITY}" 0 "response: ${_r3:-no response}"
 
+  local _r4 _n4
   _r4=$(_fetch "${BACKEND_URL}/filings/count?entity=${_ENTITY}&q=${_TEXT}&from=${_FROM}&to=${_TO}&form=${_FORM}")
   _n4=$(printf '%s' "$_r4" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('total',0))" 2>/dev/null || echo "")
   [[ -n "$_n4" && "$_n4" -ge 0 ]] \
     && _chk 4 "GET /filings/count?entity=${_ENTITY}&q=${_TEXT}&form=${_FORM}" 1 "total=${_n4}" \
     || _chk 4 "GET /filings/count?entity=${_ENTITY}&q=${_TEXT}&form=${_FORM}" 0 "response: ${_r4:-no response}"
 
+  local _r5 _n5
   _r5=$(_fetch "${BACKEND_URL}/filings?entity=${_ENTITY}&q=${_TEXT}&from=${_FROM}&to=${_TO}&form=${_FORM}&page=1&pageSize=5")
   _n5=$(printf '%s' "$_r5" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('total',0))" 2>/dev/null || echo "")
   [[ -n "$_n5" && "$_n5" -gt 0 ]] \
     && _chk 5 "GET /filings?entity=${_ENTITY}&q=${_TEXT}&form=${_FORM}" 1 "total=${_n5}" \
     || _chk 5 "GET /filings?entity=${_ENTITY}&q=${_TEXT}&form=${_FORM}" 0 "response: ${_r5:-no response}"
 
+  local _r6 _n6
   _r6=$(_fetch "${BACKEND_URL}/aggregates?q=${_TEXT}&from=${_FROM}&to=${_TO}&form=${_FORM}")
   _n6=$(printf '%s' "$_r6" | python3 -c "import sys,json;d=json.load(sys.stdin);print(len(d.get('by_form',[]) or d.get('by_month',[]) or d))" 2>/dev/null || echo "")
   [[ -n "$_n6" && "$_n6" -gt 0 ]] \
     && _chk 6 "GET /aggregates?q=${_TEXT}&form=${_FORM}" 1 \
     || _chk 6 "GET /aggregates?q=${_TEXT}&form=${_FORM}" 0 "response: ${_r6:-no response}"
 
+  local _r7 _from7
   _r7=$(_fetch "${BACKEND_URL}/dataset-bounds")
   _from7=$(printf '%s' "$_r7" | python3 -c "import sys,json;print(json.load(sys.stdin).get('from',''))" 2>/dev/null || echo "")
   [[ -n "$_from7" ]] \
@@ -340,4 +365,28 @@ if [[ "$_SANITY" =~ ^[Yy]$ ]]; then
 
   printf '\n  Results: %d passed, %d failed\n' "$_CP" "$_CF"
   (( _CF > 0 )) && printf '\n  !! %d CHECK(S) FAILED — review above before presenting\n' "$_CF" || true
+}
+
+# ── Main ──────────────────────────────────────────────────────────────────────
+
+_prompt_menu
+if [[ "$TARGET" == "local" ]]; then
+  _deploy_local
+else
+  printf '\n--- GCP Cloud Run ---\n'
+  printf '  Backend:  Cloud Run (scales to zero)\n'
+  printf '  Frontend: Cloud Run (scales to zero, nginx proxy)\n'
+  printf '  Cost est: ~$0/mo  (Cloud Run free tier covers demo traffic)\n\n'
+  printf '[1/4] Checking gcloud auth...\n'
+  _check_gcloud_auth
+  _resolve_project
+  printf '\n[2/4] API keys...\n'
+  _ensure_service_account
+  _setup_secrets
+  printf '\n[3/4] Building images via Cloud Build...\n'
+  _build_images
+  printf '\n[4/4] Deploying to Cloud Run...\n'
+  _deploy_cloud_run
+  _persist_config
+  _post_deploy_checks
 fi
