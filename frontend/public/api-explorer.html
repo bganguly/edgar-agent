@@ -215,6 +215,38 @@
     </div>
   </div>
 
+  <!-- GET /filings/count -->
+  <div class="glass rounded-2xl overflow-hidden">
+    <button class="w-full flex items-center justify-between gap-4 px-6 py-4 text-left" onclick="tog('fcount')"
+      style="transition:background .15s" onmouseenter="this.style.background='rgba(255,255,255,0.02)'" onmouseleave="this.style.background=''">
+      <div class="flex items-center gap-3 min-w-0">
+        <span class="shrink-0 text-11 px-2 py-0\.5 rounded-full font-semibold badge-get">GET</span>
+        <span class="font-mono text-sm shrink-0" style="color:#a1a1aa">/filings/count</span>
+        <span class="text-xs sm-block truncate" style="color:#52525b">Total filing count matching optional filters — entity, text query, form type, date range</span>
+      </div>
+      <svg id="chv-fcount" class="chevron shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#52525b"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div id="bdy-fcount" class="hidden px-6 pb-6 border-t bdim">
+      <div class="flex flex-wrap items-center justify-between gap-3 pt-4 mb-4">
+        <div class="flex flex-wrap items-center gap-3">
+          <input id="fc-entity" type="text" class="di" placeholder="entity (optional)" style="width:160px" onkeydown="if(event.key==='Enter')runFc()" />
+          <input id="fc-q"      type="text" class="di" placeholder="text search (q=…)"  style="width:150px" onkeydown="if(event.key==='Enter')runFc()" />
+          <input id="fc-form"   type="text" class="di" placeholder="form (e.g. 10-K)"   style="width:120px" onkeydown="if(event.key==='Enter')runFc()" />
+          <div class="flex items-center gap-2">
+            <span class="text-11" style="color:#52525b">from</span>
+            <input id="fc-from" type="date" class="di" style="width:140px" />
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-11" style="color:#52525b">to</span>
+            <input id="fc-to" type="date" class="di" style="width:140px" />
+          </div>
+        </div>
+        <button class="run-btn" id="fc-btn" onclick="runFc()"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l14 9-14 9V3z"/></svg>Run</button>
+      </div>
+      <div id="res-fcount"></div>
+    </div>
+  </div>
+
   <!-- GET /filings (latest) -->
   <div class="glass rounded-2xl overflow-hidden">
     <button class="w-full flex items-center justify-between gap-4 px-6 py-4 text-left" onclick="tog('filings')"
@@ -255,6 +287,7 @@
         <div class="flex flex-wrap items-center gap-3">
           <input id="fs-entity" type="text" class="di" placeholder="entity, e.g. Tesla" style="width:160px" onkeydown="if(event.key==='Enter')runFs()" />
           <input id="fs-q"      type="text" class="di" placeholder="text search (q=…)"  style="width:150px" onkeydown="if(event.key==='Enter')runFs()" />
+          <input id="fs-form"   type="text" class="di" placeholder="form (e.g. 10-K)"   style="width:120px" onkeydown="if(event.key==='Enter')runFs()" />
           <div class="flex items-center gap-2">
             <span class="text-11" style="color:#52525b">from</span>
             <input id="fs-from" type="date" class="di" style="width:140px" />
@@ -418,7 +451,7 @@
   let _coPage = 1, _coQ = '';
   let _cosPage = 1, _cosQ = '';
   let _fiPage = 1;
-  let _fsPage = 1, _fsEntity = '', _fsQ = '', _fsFrom = '', _fsTo = '';
+  let _fsPage = 1, _fsEntity = '', _fsQ = '', _fsForm = '', _fsFrom = '', _fsTo = '';
   document.getElementById('agg-to').value = new Date().toISOString().slice(0,10);
 
   function base() { return document.getElementById('base-input').value.trim().replace(/\/$/,''); }
@@ -574,10 +607,35 @@
     finally{btn.disabled=false;}
   }
 
+  async function runFc() {
+    const entity=document.getElementById('fc-entity').value.trim();
+    const q=document.getElementById('fc-q').value.trim();
+    const form=document.getElementById('fc-form').value.trim();
+    const from=document.getElementById('fc-from').value;
+    const to=document.getElementById('fc-to').value;
+    const btn=document.getElementById('fc-btn'); btn.disabled=true;
+    document.getElementById('res-fcount').innerHTML=spin();
+    const t0=performance.now();
+    try {
+      const p=new URLSearchParams();
+      if(entity)p.set('entity',entity); if(q)p.set('q',q); if(form)p.set('form',form);
+      if(from)p.set('from',from); if(to)p.set('to',to);
+      const r=await fetch(U(`/filings/count?${p}`));
+      const ms=Math.round(performance.now()-t0);
+      if(!r.ok){const err=await r.json().catch(()=>({detail:r.statusText}));document.getElementById('res-fcount').innerHTML=errWithRetry(err.detail||r.statusText,'runFc()');return;}
+      const j=await r.json();
+      document.getElementById('res-fcount').innerHTML=
+        meta(ms,'filing count')+
+        `<div class="stat-card" style="display:inline-block"><p style="font-size:10px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px;color:#52525b">Total</p><p style="font-size:1.5rem;font-weight:700;font-family:'JetBrains Mono',monospace;color:#f4f4f5">${Number(j.total||0).toLocaleString()}</p></div>`+rawJson(j);
+    } catch(e){document.getElementById('res-fcount').innerHTML=errWithRetry(e.message,'runFc()');}
+    finally{btn.disabled=false;}
+  }
+
   async function runFs(page) {
     if (page === undefined) {
       _fsEntity=document.getElementById('fs-entity').value.trim();
       _fsQ=document.getElementById('fs-q').value.trim();
+      _fsForm=document.getElementById('fs-form').value.trim();
       _fsFrom=document.getElementById('fs-from').value;
       _fsTo=document.getElementById('fs-to').value;
       if (!_fsEntity&&!_fsQ){document.getElementById('res-fsearch').innerHTML='<p style="font-size:.75rem;color:#52525b">Enter an entity name or search term above.</p>';return;}
@@ -591,7 +649,7 @@
     const t0=performance.now();
     try {
       const p=new URLSearchParams({pageSize:'10',page:String(_fsPage)});
-      if(_fsEntity)p.set('entity',_fsEntity); if(_fsQ)p.set('q',_fsQ);
+      if(_fsEntity)p.set('entity',_fsEntity); if(_fsQ)p.set('q',_fsQ); if(_fsForm)p.set('form',_fsForm);
       if(_fsFrom)p.set('from',_fsFrom); if(_fsTo)p.set('to',_fsTo);
       const r=await fetch(U(`/filings?${p}`));
       const ms=Math.round(performance.now()-t0);
