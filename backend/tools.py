@@ -6,7 +6,8 @@ TOOL_DEFINITIONS = [
     {
         "name": "search_edgar",
         "description": (
-            "Search SEC EDGAR for 10-K annual filings for a given company. "
+            "Search SEC EDGAR filings for a given company. "
+            "Use form_type='10-K' (default) for annual reports or '10-Q' for quarterly reports. "
             "Returns a list of filing index URLs that can be fetched with fetch_filing."
         ),
         "input_schema": {
@@ -14,8 +15,17 @@ TOOL_DEFINITIONS = [
             "properties": {
                 "company_name": {
                     "type": "string",
-                    "description": "The name of the public company to search for (e.g. 'Apple', 'Tesla Inc').",
-                }
+                    "description": "The name of the public company to search for (e.g. 'Apple Inc', 'Tesla Inc').",
+                },
+                "form_type": {
+                    "type": "string",
+                    "enum": ["10-K", "10-Q"],
+                    "description": (
+                        "Filing type to search for. '10-K' is the annual report (default). "
+                        "'10-Q' is the quarterly report — use this when asked about recent quarterly results, "
+                        "revenue, earnings, or any period after the most recent fiscal year end."
+                    ),
+                },
             },
             "required": ["company_name"],
         },
@@ -160,14 +170,14 @@ def _find_section(text: str, section: str) -> str:
     return f"Section '{section}' not found in this filing."
 
 
-def search_edgar(company_name: str) -> str:
+def search_edgar(company_name: str, form_type: str = "10-K") -> str:
     try:
         resp = httpx.get(
             "https://www.sec.gov/cgi-bin/browse-edgar",
             params={
                 "company": company_name,
                 "CIK": "",
-                "type": "10-K",
+                "type": form_type,
                 "dateb": "",
                 "owner": "include",
                 "count": "10",
@@ -196,12 +206,12 @@ def search_edgar(company_name: str) -> str:
             continue
         filing_date = cells[3].get_text(strip=True)
         doc_url = "https://www.sec.gov" + href
-        results.append(f"- {company_name} | Filed: {filing_date} | URL: {doc_url}")
+        results.append(f"- {company_name} | {form_type} | Filed: {filing_date} | URL: {doc_url}")
         if len(results) >= 5:
             break
 
     if not results:
-        return f"No 10-K filings found for '{company_name}'."
+        return f"No {form_type} filings found for '{company_name}'."
     return "\n".join(results)
 
 
@@ -231,7 +241,7 @@ def fetch_filing(url: str, section: str | None = None) -> str:
 
 def execute_tool(tool_name: str, tool_input: dict) -> str:
     if tool_name == "search_edgar":
-        return search_edgar(tool_input["company_name"])
+        return search_edgar(tool_input["company_name"], tool_input.get("form_type", "10-K"))
     elif tool_name == "fetch_filing":
         return fetch_filing(tool_input["url"], tool_input.get("section"))
     else:
