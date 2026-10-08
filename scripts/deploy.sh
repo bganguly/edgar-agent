@@ -201,17 +201,17 @@ _setup_secrets() {
     [[ -f "$_sib" ]] || continue
     [[ -z "${ANTHROPIC_API_KEY:-}" ]] && \
       ANTHROPIC_API_KEY=$(grep "^ANTHROPIC_API_KEY=" "$_sib" 2>/dev/null | cut -d= -f2- | head -1 || true)
-    [[ -z "${OPENAI_API_KEY:-}" ]] && \
-      OPENAI_API_KEY=$(grep "^OPENAI_API_KEY=" "$_sib" 2>/dev/null | cut -d= -f2- | head -1 || true)
+    [[ -z "${NVIDIA_API_KEY:-}" ]] && \
+      NVIDIA_API_KEY=$(grep "^NVIDIA_API_KEY=" "$_sib" 2>/dev/null | cut -d= -f2- | head -1 || true)
   done
   export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}"
-  export OPENAI_API_KEY="${OPENAI_API_KEY:-}"
+  export NVIDIA_API_KEY="${NVIDIA_API_KEY:-}"
 
   ANTHROPIC_API_KEY=$(_prompt_key "ANTHROPIC_API_KEY" "edgar-anthropic-key" required)
-  OPENAI_API_KEY=$(_prompt_key    "OPENAI_API_KEY"    "edgar-openai-key"    optional)
+  NVIDIA_API_KEY=$(_prompt_key    "NVIDIA_API_KEY"    "edgar-nvidia-key"    optional)
 
   _upsert_secret edgar-anthropic-key "$ANTHROPIC_API_KEY"
-  _upsert_secret edgar-openai-key    "${OPENAI_API_KEY:-}"
+  _upsert_secret edgar-nvidia-key    "${NVIDIA_API_KEY:-}"
 }
 
 # ── Build images ──────────────────────────────────────────────────────────────
@@ -257,7 +257,7 @@ _deploy_cloud_run() {
     --region="$GCP_REGION" \
     --project="$GCP_PROJECT" \
     --service-account="$SA_EMAIL" \
-    --set-env-vars="ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY},OPENAI_API_KEY=${OPENAI_API_KEY:-}" \
+    --set-env-vars="ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY},NVIDIA_API_KEY=${NVIDIA_API_KEY:-}" \
     --allow-unauthenticated \
     --min-instances=0 \
     --timeout=300 \
