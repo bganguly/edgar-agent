@@ -199,11 +199,10 @@ def get_filing_aggregates(
     params: dict = {
         "_source": "file_date,form",
         "size": 500,
+        "forms": form or "10-K",
     }
     if q:
         params["q"] = q
-    if form:
-        params["forms"] = form
     if from_date or to_date:
         params["dateRange"] = "custom"
         if from_date:
