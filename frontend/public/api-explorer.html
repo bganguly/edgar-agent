@@ -277,7 +277,7 @@
       <div class="flex items-center gap-3 min-w-0">
         <span class="shrink-0 text-11 px-2 py-0\.5 rounded-full font-semibold badge-get">GET</span>
         <span class="font-mono text-sm shrink-0" style="color:#a1a1aa">/aggregates</span>
-        <span class="text-xs sm-block truncate" style="color:#52525b">Monthly filing counts — any date range, optional text filter</span>
+        <span class="text-xs sm-block truncate" style="color:#52525b">Monthly filing counts — date range, optional form type and text filter</span>
       </div>
       <svg id="chv-agg" class="chevron shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#52525b"><path d="M6 9l6 6 6-6"/></svg>
     </button>
@@ -292,6 +292,7 @@
             <span class="text-11" style="color:#52525b">to</span>
             <input id="agg-to" type="date" class="di" style="width:140px" />
           </div>
+          <input id="agg-form" type="text" class="di" placeholder="form (e.g. 10-K)" style="width:130px" onkeydown="if(event.key==='Enter')runAgg()" />
           <input id="agg-q" type="text" class="di" placeholder="optional text filter" style="width:170px" onkeydown="if(event.key==='Enter')runAgg()" />
         </div>
         <button class="run-btn" id="agg-btn" onclick="runAgg()"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l14 9-14 9V3z"/></svg>Run</button>
@@ -615,7 +616,8 @@
     document.getElementById('res-agg').innerHTML=spin();
     const t0=performance.now();
     try {
-      const p=new URLSearchParams({from,to}); if(q)p.set('q',q);
+      const form=document.getElementById('agg-form').value.trim();
+      const p=new URLSearchParams({from,to}); if(form)p.set('form',form); if(q)p.set('q',q);
       const r=await fetch(U(`/aggregates?${p}`));
       const ms=Math.round(performance.now()-t0);
       if(!r.ok){const err=await r.json().catch(()=>({detail:r.statusText}));document.getElementById('res-agg').innerHTML=errWithRetry(err.detail||r.statusText,'runAgg()');return;}
