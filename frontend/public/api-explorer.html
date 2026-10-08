@@ -141,15 +141,13 @@
 
   <!-- Architecture flow -->
   <div class="flex flex-wrap items-center mb-4" style="gap:4px;font-size:11px">
-    <span class="flow-node" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);color:#34d399">GET /companies</span>
+    <span class="flow-node" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);color:#34d399">GET /companies · /filings · /aggregates</span>
     <span class="flow-arrow">→</span>
-    <span class="flow-node" style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);color:#a5b4fc">EDGAR EFTS</span>
-    <span class="flow-arrow">→</span>
-    <span class="flow-node" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);color:#34d399">PostgreSQL</span>
+    <span class="flow-node" style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);color:#a5b4fc">SEC EDGAR API</span>
     <span class="flow-arrow">·</span>
     <span class="flow-node" style="background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.2);color:#c4b5fd">POST /chat</span>
     <span class="flow-arrow">→</span>
-    <span class="flow-node" style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);color:#a5b4fc">Claude agent loop</span>
+    <span class="flow-node" style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);color:#a5b4fc">Claude / Nemotron agent loop</span>
     <span class="flow-arrow">→</span>
     <span class="flow-node" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);color:#34d399">SSE stream</span>
   </div>
