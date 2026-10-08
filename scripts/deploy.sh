@@ -305,7 +305,7 @@ _post_deploy_checks() {
   [[ "$_SANITY" =~ ^[Yy]$ ]] || return 0
 
   _CP=0; _CF=0
-  local _ENTITY="yahoo" _TEXT="capex" _FROM="2024-01-01" _TO="2026-12-31" _FORM="10-K"
+  local _ENTITY="apple" _TEXT="revenue" _FROM="2024-01-01" _TO="2026-12-31" _FORM="10-K" _FORMQ="10-Q"
 
   printf '\n=== post-deploy sanity check ===\n'
   printf '  (cold-start may take ~15 s — waiting for first response)\n\n'
@@ -357,6 +357,20 @@ _post_deploy_checks() {
   [[ -n "$_from7" ]] \
     && _chk 7 "GET /dataset-bounds" 1 "from=${_from7}" \
     || _chk 7 "GET /dataset-bounds" 0 "response: ${_r7:-no response}"
+
+  local _r8 _n8
+  _r8=$(_fetch "${BACKEND_URL}/filings/count?entity=${_ENTITY}&q=${_TEXT}&from=${_FROM}&to=${_TO}&form=${_FORMQ}")
+  _n8=$(printf '%s' "$_r8" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('total',0))" 2>/dev/null || echo "")
+  [[ -n "$_n8" && "$_n8" -ge 0 ]] \
+    && _chk 8 "GET /filings/count?entity=${_ENTITY}&q=${_TEXT}&form=${_FORMQ}" 1 "total=${_n8}" \
+    || _chk 8 "GET /filings/count?entity=${_ENTITY}&q=${_TEXT}&form=${_FORMQ}" 0 "response: ${_r8:-no response}"
+
+  local _r9 _n9
+  _r9=$(_fetch "${BACKEND_URL}/filings?entity=${_ENTITY}&q=${_TEXT}&from=${_FROM}&to=${_TO}&form=${_FORMQ}&page=1&pageSize=5")
+  _n9=$(printf '%s' "$_r9" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('total',0))" 2>/dev/null || echo "")
+  [[ -n "$_n9" && "$_n9" -gt 0 ]] \
+    && _chk 9 "GET /filings?entity=${_ENTITY}&q=${_TEXT}&form=${_FORMQ}" 1 "total=${_n9}" \
+    || _chk 9 "GET /filings?entity=${_ENTITY}&q=${_TEXT}&form=${_FORMQ}" 0 "response: ${_r9:-no response}"
 
   printf '\n  Results: %d passed, %d failed\n' "$_CP" "$_CF"
   (( _CF > 0 )) && printf '\n  !! %d CHECK(S) FAILED — review above before presenting\n' "$_CF" || true
