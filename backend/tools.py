@@ -231,17 +231,58 @@ def _parse_filing_rows(soup: BeautifulSoup, label: str, form_type: str) -> list[
     return results
 
 
+def _efts_search(company_name: str, form_type: str) -> list[str]:
+    """Search via EFTS full-text index; returns filing result lines."""
+    resp = httpx.get(
+        "https://efts.sec.gov/LATEST/search-index",
+        params={
+            "q": f'"{company_name}"',
+            "_source": "display_names,ciks,file_date,period_ending,adsh,form",
+            "forms": form_type,
+        },
+        headers=_HEADERS,
+        timeout=15,
+    )
+    resp.raise_for_status()
+    hits = resp.json().get("hits", {}).get("hits", [])
+
+    seen_adsh: set[str] = set()
+    results = []
+    for hit in hits:
+        src = hit.get("_source", {})
+        adsh = src.get("adsh", "")
+        if not adsh or adsh in seen_adsh:
+            continue
+        if src.get("form", "") != form_type:
+            continue
+        seen_adsh.add(adsh)
+        cik = (src.get("ciks") or [""])[0].lstrip("0") or "0"
+        path = adsh.replace("-", "")
+        index_url = f"https://www.sec.gov/Archives/edgar/data/{cik}/{path}/{adsh}-index.htm"
+        results.append(
+            f"- {company_name} | {form_type} | Filed: {src.get('file_date','')} | URL: {index_url}"
+        )
+        if len(results) >= 5:
+            break
+    return results
+
+
 def search_edgar(company_name: str, form_type: str = "10-K") -> str:
     try:
-        soup = _browse_edgar(company=company_name, form_type=form_type)
-        results = _parse_filing_rows(soup, company_name, form_type)
+        # Primary: EFTS full-text search (reliable, returns structured data)
+        results = _efts_search(company_name, form_type)
 
         if not results:
-            # Resolve as ticker → numeric CIK, then retry
+            # Fallback: resolve as ticker → numeric CIK → browse-edgar
             cik = _resolve_ticker_to_cik(company_name)
             if cik:
                 soup = _browse_edgar(cik=cik, form_type=form_type)
                 results = _parse_filing_rows(soup, company_name, form_type)
+
+        if not results:
+            # Last resort: browse-edgar company name search
+            soup = _browse_edgar(company=company_name, form_type=form_type)
+            results = _parse_filing_rows(soup, company_name, form_type)
     except Exception as e:
         return f"EDGAR search failed: {e}"
 
