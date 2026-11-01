@@ -61,6 +61,26 @@ TOOL_DEFINITIONS = [
 _HEADERS = {"User-Agent": "edgar-agent research@example.com"}
 _MAX_CHARS = 12000
 _SECTION_CHARS = 8000
+_SEC_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
+_ticker_cache: dict[str, str] = {}
+
+
+def _resolve_ticker_to_cik(ticker: str) -> str | None:
+    """Return numeric CIK string for a ticker symbol, or None if not found."""
+    ticker_upper = ticker.upper()
+    if ticker_upper in _ticker_cache:
+        return _ticker_cache[ticker_upper]
+    try:
+        resp = httpx.get(_SEC_TICKERS_URL, headers=_HEADERS, timeout=15)
+        resp.raise_for_status()
+        for entry in resp.json().values():
+            if entry.get("ticker", "").upper() == ticker_upper:
+                cik = str(entry["cik_str"])
+                _ticker_cache[ticker_upper] = cik
+                return cik
+    except Exception:
+        pass
+    return None
 
 
 def _normalize_edgar_url(href: str) -> str:
@@ -170,29 +190,28 @@ def _find_section(text: str, section: str) -> str:
     return f"Section '{section}' not found in this filing."
 
 
-def search_edgar(company_name: str, form_type: str = "10-K") -> str:
-    try:
-        resp = httpx.get(
-            "https://www.sec.gov/cgi-bin/browse-edgar",
-            params={
-                "company": company_name,
-                "CIK": "",
-                "type": form_type,
-                "dateb": "",
-                "owner": "include",
-                "count": "10",
-                "search_text": "",
-                "action": "getcompany",
-            },
-            headers=_HEADERS,
-            timeout=15,
-            follow_redirects=True,
-        )
-        resp.raise_for_status()
-    except Exception as e:
-        return f"EDGAR search failed: {e}"
+def _browse_edgar(company: str = "", cik: str = "", form_type: str = "10-K") -> BeautifulSoup:
+    resp = httpx.get(
+        "https://www.sec.gov/cgi-bin/browse-edgar",
+        params={
+            "company": company,
+            "CIK": cik,
+            "type": form_type,
+            "dateb": "",
+            "owner": "include",
+            "count": "10",
+            "search_text": "",
+            "action": "getcompany",
+        },
+        headers=_HEADERS,
+        timeout=15,
+        follow_redirects=True,
+    )
+    resp.raise_for_status()
+    return BeautifulSoup(resp.text, "lxml")
 
-    soup = BeautifulSoup(resp.text, "lxml")
+
+def _parse_filing_rows(soup: BeautifulSoup, label: str, form_type: str) -> list[str]:
     results = []
     for row in soup.select("table.tableFile2 tr"):
         cells = row.find_all("td")
@@ -206,9 +225,25 @@ def search_edgar(company_name: str, form_type: str = "10-K") -> str:
             continue
         filing_date = cells[3].get_text(strip=True)
         doc_url = "https://www.sec.gov" + href
-        results.append(f"- {company_name} | {form_type} | Filed: {filing_date} | URL: {doc_url}")
+        results.append(f"- {label} | {form_type} | Filed: {filing_date} | URL: {doc_url}")
         if len(results) >= 5:
             break
+    return results
+
+
+def search_edgar(company_name: str, form_type: str = "10-K") -> str:
+    try:
+        soup = _browse_edgar(company=company_name, form_type=form_type)
+        results = _parse_filing_rows(soup, company_name, form_type)
+
+        if not results:
+            # Resolve as ticker → numeric CIK, then retry
+            cik = _resolve_ticker_to_cik(company_name)
+            if cik:
+                soup = _browse_edgar(cik=cik, form_type=form_type)
+                results = _parse_filing_rows(soup, company_name, form_type)
+    except Exception as e:
+        return f"EDGAR search failed: {e}"
 
     if not results:
         return f"No {form_type} filings found for '{company_name}'."
